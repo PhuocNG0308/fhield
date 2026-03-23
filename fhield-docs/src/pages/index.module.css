@@ -1,0 +1,21 @@
+.heroBanner {
+  padding: 5rem 0 3rem;
+  background: var(--ifm-background-color);
+}
+
+[data-theme='dark'] .heroBanner {
+  background: var(--surface, #001522);
+}
+
+.buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 996px) {
+  .heroBanner {
+    padding: 3rem 1.5rem;
+  }
+}

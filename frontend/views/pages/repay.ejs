@@ -1,0 +1,109 @@
+<main class="layout-main max-w-2xl mx-auto py-8 px-4">
+  <%- include('../partials/page-header', {
+    badgeIcon: 'credit_score',
+    badgeText: 'Debt Management',
+    title: 'Repay Loan',
+    description: 'Settle your encrypted debt privately. Repayment amounts remain invisible to other network participants.',
+    headerClass: 'mb-8 text-center'
+  }) %>
+
+  <section class="glass-panel rounded-2xl p-8 border border-outline-variant/10 relative overflow-hidden mb-8" data-requires-wallet>
+    <div class="absolute -top-24 -right-24 w-48 h-48 bg-tertiary/10 blur-[80px] rounded-full pointer-events-none"></div>
+    <div class="relative z-10 space-y-8">
+      <div class="flex items-center justify-between p-4 rounded-xl bg-tertiary/5 border border-tertiary/10">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">encrypted</span>
+          <div>
+            <p class="text-xs text-on-surface-variant font-medium">Current Debt Balance</p>
+            <p class="text-xl font-headline font-extrabold text-on-surface fhe-blur">$8,500.00</p>
+          </div>
+        </div>
+        <div class="text-right">
+          <p class="text-[10px] text-outline uppercase tracking-widest font-bold">Borrow APY</p>
+          <p class="text-lg font-headline font-bold text-tertiary"><%= position.currentAPY %>%</p>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <label class="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Select Asset</label>
+        <div class="grid grid-cols-2 gap-3" data-asset-selector>
+          <input type="hidden" name="asset" value="<%= position.repayAssets.find(a => a.selected)?.asset || position.repayAssets[0].asset %>" />
+          <% position.repayAssets.forEach(function(a) { %>
+          <button class="asset-card flex items-center gap-3 p-4 rounded-xl border transition-all <%= a.selected ? 'active border-primary bg-surface-container-high' : 'border-outline-variant/10 bg-surface-container-lowest' %>" data-asset="<%= a.asset %>">
+            <div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center">
+              <span class="material-symbols-outlined <%= a.selected ? 'text-primary' : 'text-on-surface-variant' %>"><%= a.icon %></span>
+            </div>
+            <div class="text-left">
+              <p class="text-sm font-bold text-on-surface"><%= a.asset %></p>
+              <p class="text-[10px] text-on-surface-variant"><%= a.fullName %></p>
+            </div>
+          </button>
+          <% }) %>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex justify-between items-center">
+          <label class="text-xs font-label uppercase tracking-widest text-on-surface-variant">Amount</label>
+          <span class="text-xs text-on-surface-variant">Wallet: <span class="font-bold text-on-surface"><%= position.walletBalance %></span></span>
+        </div>
+        <div class="input-field flex items-center">
+          <input class="bg-transparent border-none focus:ring-0 text-2xl font-headline font-bold text-on-surface w-full" placeholder="0.00" type="number" />
+          <div class="flex items-center gap-2 ml-4 flex-shrink-0">
+            <button data-max-btn="<%= position.walletBalance %>" class="text-xs font-bold text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded-lg bg-primary/10">MAX</button>
+          </div>
+        </div>
+        <p class="text-xs text-on-surface-variant ml-1">≈ <span data-usd-display="1.00">$0.00</span></p>
+      </div>
+
+      <button data-action-btn="Repay" class="btn-primary w-full py-4 rounded-xl text-base font-bold">
+        <span class="material-symbols-outlined text-lg mr-2 align-middle">credit_score</span>
+        Repay Debt
+      </button>
+    </div>
+  </section>
+
+  <section class="glass-panel rounded-2xl p-8 border border-outline-variant/10 mb-8">
+    <h3 class="text-xs font-label font-bold text-outline tracking-widest uppercase mb-6">Projected Health Factor</h3>
+    <div class="flex items-center justify-between gap-6">
+      <div class="flex-1 text-center">
+        <p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-2">Before</p>
+        <div class="relative w-28 h-28 mx-auto" data-health-gauge="<%= position.healthBefore %>">
+          <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" fill="transparent" r="52" stroke="currentColor" stroke-width="8" class="text-surface-container-highest"></circle>
+            <circle cx="60" cy="60" fill="transparent" r="52" stroke="currentColor" stroke-dasharray="327" stroke-dashoffset="327" stroke-linecap="round" stroke-width="8" class="text-tertiary transition-all duration-1000"></circle>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-2xl font-headline font-extrabold text-tertiary"><%= position.healthBefore %></span>
+            <span class="text-[8px] text-outline uppercase font-bold">At Risk</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col items-center gap-1">
+        <span class="material-symbols-outlined text-primary text-3xl">arrow_forward</span>
+        <span class="text-[10px] text-primary font-bold uppercase">Improved</span>
+      </div>
+      <div class="flex-1 text-center">
+        <p class="text-[10px] text-on-surface-variant font-bold uppercase tracking-widest mb-2">After</p>
+        <div class="relative w-28 h-28 mx-auto" data-health-gauge="<%= position.healthAfter %>">
+          <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" fill="transparent" r="52" stroke="currentColor" stroke-width="8" class="text-surface-container-highest"></circle>
+            <circle cx="60" cy="60" fill="transparent" r="52" stroke="currentColor" stroke-dasharray="327" stroke-dashoffset="327" stroke-linecap="round" stroke-width="8" class="text-primary transition-all duration-1000"></circle>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-2xl font-headline font-extrabold text-primary"><%= position.healthAfter %></span>
+            <span class="text-[8px] text-outline uppercase font-bold">Healthy</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="p-5 rounded-xl bg-surface-container border border-outline-variant/5 flex items-start gap-4">
+    <span class="material-symbols-outlined text-on-surface-variant text-xl mt-0.5">info</span>
+    <div>
+      <p class="text-sm font-bold text-on-surface">About Overpayment</p>
+      <p class="text-xs text-on-surface-variant leading-relaxed mt-1">If your repay amount exceeds the outstanding balance, the protocol will automatically refund the difference to your wallet. No manual claim required — excess funds return within the same transaction.</p>
+    </div>
+  </div>
+</main>

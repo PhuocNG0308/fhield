@@ -1,0 +1,17 @@
+{
+  "name": "fhield-frontend",
+  "version": "1.0.0",
+  "description": "Fhield — Privacy-First FHE DeFi Lending Frontend",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "ejs": "^3.1.10",
+    "ethers": "^6.16.0",
+    "express": "^4.21.2",
+    "express-ejs-layouts": "^2.5.1"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "extends": "@docusaurus/tsconfig",
+  "compilerOptions": {
+    "jsx": "react",
+    "baseUrl": ".",
+    "skipLibCheck": true,
+    "paths": {
+      "@site/*": ["./*"],
+      "@docusaurus/theme-common": ["./node_modules/@docusaurus/theme-common/lib/index.d.ts"]
+    }
+  }
+}

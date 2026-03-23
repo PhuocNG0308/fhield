@@ -1,0 +1,375 @@
+<main class="flex-grow pt-32 pb-20 px-6 max-w-[1200px] mx-auto w-full" id="portfolio-page">
+  <%- include('../partials/page-header', {
+    badgeIcon: 'shield_lock',
+    badgeText: 'FHE Protected',
+    title: 'Your Portfolio',
+    description: 'All positions encrypted via Fully Homomorphic Encryption. Only you can view your data.',
+    headerClass: 'mb-10'
+  }) %>
+
+  <!-- Net Worth Banner -->
+  <section class="glass-panel rounded-2xl relative overflow-hidden border border-outline-variant/10 p-8 mb-8">
+    <div class="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-tertiary/5 pointer-events-none"></div>
+    <div class="relative z-10">
+      <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-6">
+        <div class="flex-1">
+          <span class="text-[10px] font-bold text-outline uppercase tracking-[0.2em]">Your Net Worth</span>
+          <div class="flex items-baseline gap-3 mt-1">
+            <h2 id="net-worth" class="text-4xl md:text-5xl font-headline font-extrabold text-on-surface fhe-blur">
+              <span class="skeleton inline-block w-48 h-10"></span>
+            </h2>
+            <span id="net-worth-change" class="badge badge-safe text-xs opacity-0 transition-opacity">—</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="fhe-reveal-btn" class="btn-secondary flex items-center gap-2 px-4 py-2 rounded-xl text-xs">
+            <span class="material-symbols-outlined text-base" style="font-variation-settings: 'FILL' 1;">visibility</span> Reveal
+          </button>
+          <button id="refresh-btn" class="btn-secondary flex items-center gap-2 px-4 py-2 rounded-xl text-xs">
+            <span class="material-symbols-outlined text-base">refresh</span> Refresh
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 mt-6 border-t border-outline-variant/10">
+        <div>
+          <p class="text-[10px] font-bold text-outline uppercase tracking-widest">Health Factor</p>
+          <p id="health-factor" class="text-2xl font-headline font-extrabold text-primary mt-1"><span class="skeleton inline-block w-16 h-7"></span></p>
+          <p id="liq-threshold" class="text-[10px] text-on-surface-variant"><span class="skeleton inline-block w-20 h-3"></span></p>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold text-outline uppercase tracking-widest">Borrowing Power</p>
+          <p id="borrowing-power" class="text-2xl font-headline font-extrabold text-tertiary mt-1"><span class="skeleton inline-block w-16 h-7"></span></p>
+          <p id="borrowing-detail" class="text-[10px] text-on-surface-variant"><span class="skeleton inline-block w-28 h-3"></span></p>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold text-outline uppercase tracking-widest">Total Supplied</p>
+          <p id="total-supplied" class="text-2xl font-headline font-extrabold text-on-surface mt-1 fhe-blur"><span class="skeleton inline-block w-20 h-7"></span></p>
+        </div>
+        <div>
+          <p class="text-[10px] font-bold text-outline uppercase tracking-widest">Total Borrowed</p>
+          <p id="total-borrowed" class="text-2xl font-headline font-extrabold text-on-surface mt-1 fhe-blur"><span class="skeleton inline-block w-20 h-7"></span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Actions -->
+  <div class="flex flex-wrap gap-3 mb-8">
+    <a href="/deposit" class="btn-primary flex items-center gap-2 px-5 py-3 rounded-xl text-sm">
+      <span class="material-symbols-outlined text-lg">add_circle</span> Supply
+    </a>
+    <a href="/borrow" class="btn-secondary flex items-center gap-2 px-5 py-3 rounded-xl text-sm">
+      <span class="material-symbols-outlined text-lg">download</span> Borrow
+    </a>
+    <a href="/repay" class="btn-secondary flex items-center gap-2 px-5 py-3 rounded-xl text-sm">
+      <span class="material-symbols-outlined text-lg">credit_score</span> Repay
+    </a>
+  </div>
+
+  <!-- Supplies & Borrows -->
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+    <section class="glass-panel rounded-2xl p-8 border border-outline-variant/10">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xs font-label font-bold text-outline tracking-widest uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-lg">savings</span>
+          Your Supplies
+        </h2>
+        <span id="supply-count" class="badge badge-primary text-[10px]"><span class="skeleton inline-block w-12 h-4"></span></span>
+      </div>
+      <div id="supply-list" class="space-y-4">
+        <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5">
+          <div class="flex items-center gap-4">
+            <div class="skeleton w-10 h-10 rounded-full"></div>
+            <div><div class="skeleton w-20 h-4 mb-1"></div><div class="skeleton w-14 h-3"></div></div>
+          </div>
+          <div class="text-right"><div class="skeleton w-24 h-4 mb-1"></div><div class="skeleton w-16 h-3"></div></div>
+        </div>
+        <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5">
+          <div class="flex items-center gap-4">
+            <div class="skeleton w-10 h-10 rounded-full"></div>
+            <div><div class="skeleton w-20 h-4 mb-1"></div><div class="skeleton w-14 h-3"></div></div>
+          </div>
+          <div class="text-right"><div class="skeleton w-24 h-4 mb-1"></div><div class="skeleton w-16 h-3"></div></div>
+        </div>
+      </div>
+      <div id="supply-empty" class="hidden text-center py-8">
+        <span class="material-symbols-outlined text-3xl text-outline mb-2">savings</span>
+        <p class="text-sm text-on-surface-variant">No active supplies</p>
+        <a href="/deposit" class="text-xs text-primary font-medium hover:underline mt-1 inline-block">Supply now &rarr;</a>
+      </div>
+    </section>
+
+    <section class="glass-panel rounded-2xl p-8 border border-outline-variant/10">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xs font-label font-bold text-outline tracking-widest uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-tertiary text-lg">trending_down</span>
+          Your Borrows
+        </h2>
+        <span id="borrow-count" class="badge text-[10px] bg-tertiary/10 text-tertiary border-tertiary/20"><span class="skeleton inline-block w-12 h-4"></span></span>
+      </div>
+      <div id="borrow-list" class="space-y-4">
+        <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5">
+          <div class="flex items-center gap-4">
+            <div class="skeleton w-10 h-10 rounded-full"></div>
+            <div><div class="skeleton w-20 h-4 mb-1"></div><div class="skeleton w-14 h-3"></div></div>
+          </div>
+          <div class="text-right"><div class="skeleton w-24 h-4 mb-1"></div><div class="skeleton w-16 h-3"></div></div>
+        </div>
+      </div>
+      <div id="borrow-empty" class="hidden text-center py-8">
+        <span class="material-symbols-outlined text-3xl text-outline mb-2">trending_down</span>
+        <p class="text-sm text-on-surface-variant">No active borrows</p>
+        <a href="/borrow" class="text-xs text-primary font-medium hover:underline mt-1 inline-block">Borrow now &rarr;</a>
+      </div>
+    </section>
+  </div>
+
+  <!-- Pending Withdrawals & Recent Activity -->
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+    <section class="bg-surface-container rounded-2xl p-8 border border-outline-variant/10">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xs font-label font-bold text-outline tracking-widest uppercase flex items-center gap-2">
+          <span class="material-symbols-outlined text-on-surface-variant text-lg">schedule</span>
+          Pending Withdrawals
+        </h2>
+        <span id="withdrawal-count" class="badge text-[10px] bg-on-surface-variant/10 text-on-surface-variant"><span class="skeleton inline-block w-8 h-4"></span></span>
+      </div>
+      <div id="withdrawal-list" class="space-y-4">
+        <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5">
+          <div class="flex items-center gap-4">
+            <div class="skeleton w-10 h-10 rounded-full"></div>
+            <div><div class="skeleton w-24 h-4 mb-1"></div><div class="skeleton w-16 h-3"></div></div>
+          </div>
+          <div class="skeleton w-32 h-4"></div>
+        </div>
+      </div>
+      <div id="withdrawal-empty" class="hidden text-center py-8">
+        <span class="material-symbols-outlined text-3xl text-outline mb-2">schedule</span>
+        <p class="text-sm text-on-surface-variant">No pending withdrawals</p>
+      </div>
+    </section>
+
+    <section class="bg-surface-container rounded-2xl p-8 border border-outline-variant/10">
+      <h2 class="text-xs font-label font-bold text-outline tracking-widest uppercase mb-6 flex items-center gap-2">
+        <span class="material-symbols-outlined text-on-surface-variant text-lg">history</span>
+        Recent Activity
+      </h2>
+      <div id="activity-list" class="space-y-0">
+        <div class="flex gap-4 pb-6">
+          <div class="skeleton w-6 h-6 rounded-full flex-shrink-0"></div>
+          <div class="flex-1"><div class="skeleton w-32 h-4 mb-2"></div><div class="skeleton w-48 h-3"></div></div>
+        </div>
+        <div class="flex gap-4 pb-6">
+          <div class="skeleton w-6 h-6 rounded-full flex-shrink-0"></div>
+          <div class="flex-1"><div class="skeleton w-28 h-4 mb-2"></div><div class="skeleton w-40 h-3"></div></div>
+        </div>
+      </div>
+      <div id="activity-empty" class="hidden text-center py-8">
+        <span class="material-symbols-outlined text-3xl text-outline mb-2">history</span>
+        <p class="text-sm text-on-surface-variant">No recent activity</p>
+      </div>
+    </section>
+  </div>
+
+  <div id="privacy-notice" class="mt-8 p-5 rounded-xl bg-primary/5 border border-primary/10 flex items-start gap-4">
+    <span class="material-symbols-outlined text-primary text-xl mt-0.5" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+    <div>
+      <p class="text-sm font-bold text-on-surface">Privacy Notice</p>
+      <p class="text-xs text-on-surface-variant leading-relaxed mt-1">All position data is encrypted using Fully Homomorphic Encryption. Click "Reveal" to generate a one-time viewing key and decrypt your portfolio values in the browser.</p>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+const els = {
+  netWorth: document.getElementById('net-worth'),
+  netWorthChange: document.getElementById('net-worth-change'),
+  healthFactor: document.getElementById('health-factor'),
+  liqThreshold: document.getElementById('liq-threshold'),
+  borrowingPower: document.getElementById('borrowing-power'),
+  borrowingDetail: document.getElementById('borrowing-detail'),
+  totalSupplied: document.getElementById('total-supplied'),
+  totalBorrowed: document.getElementById('total-borrowed'),
+  supplyCount: document.getElementById('supply-count'),
+  supplyList: document.getElementById('supply-list'),
+  supplyEmpty: document.getElementById('supply-empty'),
+  borrowCount: document.getElementById('borrow-count'),
+  borrowList: document.getElementById('borrow-list'),
+  borrowEmpty: document.getElementById('borrow-empty'),
+  withdrawalCount: document.getElementById('withdrawal-count'),
+  withdrawalList: document.getElementById('withdrawal-list'),
+  withdrawalEmpty: document.getElementById('withdrawal-empty'),
+  activityList: document.getElementById('activity-list'),
+  activityEmpty: document.getElementById('activity-empty'),
+  refreshBtn: document.getElementById('refresh-btn'),
+  revealBtn: document.getElementById('fhe-reveal-btn'),
+};
+
+function fmt(v) {
+  return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderSupplyItem(s) {
+  return `
+    <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5 hover:border-primary/20 transition-all group animate-fade-in-up">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden">
+          <img alt="${s.name}" class="w-7 h-7" src="${s.img}" />
+        </div>
+        <div>
+          <p class="text-sm font-bold text-on-surface">${s.name}</p>
+          <p class="text-[10px] text-on-surface-variant">${s.fullName}</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <p class="text-sm font-headline font-bold text-on-surface fhe-blur" data-fhe-value>${s.balance} ${s.asset}</p>
+        <p class="text-xs text-primary font-medium">${s.apy}% APY</p>
+      </div>
+    </div>`;
+}
+
+function renderBorrowItem(b) {
+  return `
+    <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5 hover:border-tertiary/20 transition-all group animate-fade-in-up">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden">
+          <img alt="${b.name}" class="w-7 h-7" src="${b.img}" />
+        </div>
+        <div>
+          <p class="text-sm font-bold text-on-surface">${b.name}</p>
+          <p class="text-[10px] text-on-surface-variant">${b.fullName}</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <p class="text-sm font-headline font-bold text-on-surface fhe-blur" data-fhe-value>${b.debt} ${b.asset}</p>
+        <p class="text-xs text-tertiary font-medium">${b.apy}% APY</p>
+      </div>
+    </div>`;
+}
+
+function renderWithdrawalItem(w) {
+  const statusHtml = w.status === 'claimable'
+    ? '<span class="text-[10px] text-primary font-bold uppercase">Ready to Claim</span>'
+    : `<span class="text-[10px] text-on-surface-variant">Processing &middot; ETA ${w.eta}</span>`;
+  const barColor = w.status === 'claimable' ? 'bg-primary' : 'bg-tertiary';
+  const claimBtn = w.status === 'claimable'
+    ? '<button class="mt-2 text-[10px] font-bold text-primary hover:underline">Claim</button>'
+    : '';
+  return `
+    <div class="flex items-center justify-between p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/5 animate-fade-in-up">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden">
+          <img alt="${w.name}" class="w-7 h-7" src="${w.img}" />
+        </div>
+        <div>
+          <p class="text-sm font-bold text-on-surface">${w.amount} ${w.asset}</p>
+          ${statusHtml}
+        </div>
+      </div>
+      <div class="w-32">
+        <div class="w-full bg-surface-container-highest h-1.5 rounded-full">
+          <div class="h-full rounded-full ${barColor}" style="width: ${w.progress}%"></div>
+        </div>
+        ${claimBtn}
+      </div>
+    </div>`;
+}
+
+function renderActivityItem(a, i, total) {
+  const line = i < total - 1
+    ? '<div class="absolute left-[11px] top-6 bottom-0 w-px bg-outline-variant/20"></div>'
+    : '';
+  const linkHtml = a.linkText
+    ? `<a href="${a.link}" class="text-xs text-primary font-medium hover:underline mt-1 inline-block">${a.linkText}</a>`
+    : '';
+  return `
+    <div class="flex gap-4 relative pb-6 last:pb-0 animate-fade-in-up">
+      ${line}
+      <div class="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <span class="w-2 h-2 rounded-full bg-primary"></span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex justify-between items-start">
+          <p class="text-sm font-bold text-on-surface">${a.action}</p>
+          <span class="text-[10px] text-outline font-medium ml-3 whitespace-nowrap">${a.time}</span>
+        </div>
+        <p class="text-xs text-on-surface-variant mt-0.5">${a.detail}</p>
+        ${linkHtml}
+      </div>
+    </div>`;
+}
+
+function renderList(listEl, emptyEl, items, renderFn) {
+  if (!items || items.length === 0) {
+    listEl.classList.add('hidden');
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  listEl.classList.remove('hidden');
+  emptyEl.classList.add('hidden');
+  listEl.innerHTML = items.map(renderFn).join('');
+}
+
+async function loadPortfolio() {
+  const spinIcon = els.refreshBtn.querySelector('.material-symbols-outlined');
+  spinIcon.classList.add('animate-spin');
+  els.refreshBtn.disabled = true;
+
+  try {
+    const res = await fetch('/portfolio/api');
+    if (!res.ok) throw new Error('Failed to load');
+    const d = await res.json();
+
+    els.netWorth.innerHTML = `$${fmt(d.netWorth)}`;
+    els.netWorth.classList.add('fhe-blur');
+    els.netWorthChange.textContent = `+${d.netWorthChange}%`;
+    els.netWorthChange.classList.remove('opacity-0');
+    els.healthFactor.textContent = d.healthFactor.toFixed(2);
+    els.liqThreshold.textContent = `Liq. at < ${d.liquidationThreshold.toFixed(2)}`;
+    els.borrowingPower.textContent = `${d.borrowingPowerUsed}%`;
+    els.borrowingDetail.textContent = `$${d.borrowingUsed.toLocaleString()} / $${d.borrowingTotal.toLocaleString()}`;
+    els.totalSupplied.innerHTML = `$${fmt(d.supplies.reduce((s, x) => s + parseFloat(String(x.balance).replace(/,/g, '')), 0))}`;
+    els.totalBorrowed.innerHTML = `$${fmt(d.borrows.reduce((s, x) => s + parseFloat(String(x.debt).replace(/,/g, '')), 0))}`;
+
+    els.supplyCount.textContent = `${d.supplies.length} Asset${d.supplies.length !== 1 ? 's' : ''}`;
+    renderList(els.supplyList, els.supplyEmpty, d.supplies, renderSupplyItem);
+
+    els.borrowCount.textContent = `${d.borrows.length} Active`;
+    renderList(els.borrowList, els.borrowEmpty, d.borrows, renderBorrowItem);
+
+    els.withdrawalCount.textContent = String(d.pendingWithdrawals.length);
+    renderList(els.withdrawalList, els.withdrawalEmpty, d.pendingWithdrawals, renderWithdrawalItem);
+
+    renderList(els.activityList, els.activityEmpty, d.recentActivity, (a, i) => renderActivityItem(a, i, d.recentActivity.length));
+
+    initFheBlur();
+  } catch (e) {
+    console.error('Portfolio load failed:', e);
+  } finally {
+    spinIcon.classList.remove('animate-spin');
+    els.refreshBtn.disabled = false;
+  }
+}
+
+function initFheBlur() {
+  document.querySelectorAll('#portfolio-page .fhe-blur').forEach(el => {
+    el.addEventListener('click', () => el.classList.toggle('revealed'));
+  });
+}
+
+els.refreshBtn.addEventListener('click', loadPortfolio);
+
+els.revealBtn.addEventListener('click', () => {
+  const blurred = document.querySelectorAll('#portfolio-page .fhe-blur');
+  const allRevealed = [...blurred].every(el => el.classList.contains('revealed'));
+  blurred.forEach(el => {
+    if (allRevealed) el.classList.remove('revealed');
+    else el.classList.add('revealed');
+  });
+  const icon = els.revealBtn.querySelector('.material-symbols-outlined');
+  icon.textContent = allRevealed ? 'visibility' : 'visibility_off';
+});
+
+loadPortfolio();
+</script>

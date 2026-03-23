@@ -1,0 +1,22 @@
+<aside class="sidebar">
+  <div class="px-6 mb-4">
+    <div class="font-headline font-bold text-xl text-cyan-500">Fhield</div>
+    <div class="text-xs text-slate-500 uppercase tracking-[0.2em] font-label">FHE Protocol</div>
+  </div>
+  <div class="flex flex-col gap-1">
+    <% navItems.forEach(function(item) { %>
+      <a class="sidebar-link<%= activePage === item.key ? ' active' : '' %>" href="<%= item.href %>">
+        <span class="material-symbols-outlined"><%= item.icon %></span>
+        <span class="font-label text-sm font-bold"><%= item.label %></span>
+      </a>
+    <% }) %>
+  </div>
+  <div class="mt-auto px-4 space-y-2">
+    <a class="sidebar-link text-xs" href="#">
+      <span class="material-symbols-outlined text-sm">description</span> Docs
+    </a>
+    <a class="sidebar-link text-xs" href="#">
+      <span class="material-symbols-outlined text-sm">help</span> Support
+    </a>
+  </div>
+</aside>

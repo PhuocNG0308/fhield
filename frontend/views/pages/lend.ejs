@@ -1,0 +1,368 @@
+<main class="flex-grow pt-32 pb-20 px-6 max-w-[1200px] mx-auto w-full">
+  <%- include('../partials/page-header', {
+    badgeIcon: 'savings',
+    badgeText: 'FHE Protected',
+    title: 'Lend Assets',
+    description: 'Supply shielded tokens to earn yield while maintaining full privacy via FHE.',
+    headerClass: 'mb-10'
+  }) %>
+
+  <section class="space-y-6">
+    <div class="glass-panel p-6 rounded-xl border border-outline-variant/10">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h2 class="font-headline font-bold text-xl text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">account_balance</span>
+          Liquidity Pools
+        </h2>
+        <div class="relative w-full sm:w-72">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
+          <input id="pool-search" type="text" placeholder="Search assets..."
+                 class="w-full pl-10 pr-4 py-2.5 bg-surface-container-highest rounded-lg border border-transparent focus:border-primary/30 focus:outline-none text-sm text-on-surface placeholder:text-on-surface-variant/50 transition-colors" />
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full" id="pools-table">
+          <thead>
+            <tr class="border-b border-outline-variant/10">
+              <th class="text-left py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold">Asset</th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold cursor-pointer select-none hover:text-primary transition-colors" data-sort="apy">
+                Supply APY
+                <span class="material-symbols-outlined text-xs align-middle ml-0.5">unfold_more</span>
+              </th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold cursor-pointer select-none hover:text-primary transition-colors" data-sort="deposited">
+                Total Supplied
+                <span class="material-symbols-outlined text-xs align-middle ml-0.5">unfold_more</span>
+              </th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold">Utilization</th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold"></th>
+            </tr>
+          </thead>
+          <tbody id="pools-body">
+            <% markets.forEach(function(m) { %>
+            <tr class="pool-row border-b border-outline-variant/5 hover:bg-surface-container-high/30 transition-colors"
+                data-asset="<%= m.name %>"
+                data-shielded="s<%= m.name %>"
+                data-fullname="<%= m.fullName %>"
+                data-apy="<%= m.supplyAPY %>"
+                data-deposited="<%= m.supplied %>"
+                data-deposited-fmt="<%= m.suppliedFmt %>"
+                data-utilization="<%= m.utilization %>"
+                data-borrow-apy="<%= m.borrowAPY %>"
+                data-img="<%= m.img %>">
+              <td class="py-4 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/15 overflow-hidden">
+                    <img alt="<%= m.name %>" class="w-6 h-6 rounded-full" src="<%= m.img %>" />
+                  </div>
+                  <div>
+                    <div class="font-headline font-bold text-on-surface flex items-center gap-1.5">
+                      s<%= m.name %>
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-tertiary/10 text-tertiary text-[0.5625rem] font-bold uppercase tracking-wider">shielded</span>
+                    </div>
+                    <div class="text-xs text-on-surface-variant"><%= m.fullName %></div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <span class="font-headline font-bold text-primary text-lg"><%= m.supplyAPY %>%</span>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <span class="font-headline font-bold text-on-surface" data-fhe-value><%= m.suppliedFmt %></span>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <div class="w-16 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                    <div class="h-full bg-primary rounded-full" data-width="<%= m.utilization %>"></div>
+                  </div>
+                  <span class="text-sm text-on-surface-variant font-medium"><%= m.utilization %>%</span>
+                </div>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <button class="lend-deposit-btn px-5 py-2.5 bg-primary text-on-primary text-xs font-bold rounded-lg uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-95">
+                  Deposit
+                </button>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="no-results" class="hidden py-12 text-center">
+        <span class="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">search_off</span>
+        <p class="text-sm text-on-surface-variant">No matching assets found</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-4 p-5 rounded-xl bg-tertiary/5 border border-tertiary/10">
+      <div class="w-10 h-10 rounded-full bg-tertiary/10 flex items-center justify-center text-tertiary shrink-0">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+      </div>
+      <p class="text-sm text-on-surface-variant leading-relaxed">
+        Only <span class="text-tertiary font-semibold">shielded tokens (sTokens)</span> are used for deposits &mdash; your balances are encrypted via FHE and only visible through your private session keys.
+      </p>
+    </div>
+  </section>
+
+  <div id="deposit-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-backdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="glass-panel w-full max-w-lg rounded-2xl border border-outline-variant/10 relative max-h-[90vh] overflow-y-auto" id="modal-content">
+        <div class="flex justify-between items-center p-6 pb-0">
+          <h3 class="font-headline font-bold text-xl text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">savings</span>
+            Supply <span id="modal-asset-name"></span>
+          </h3>
+          <button id="modal-close" class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-6">
+          <div class="flex items-center gap-3 p-4 rounded-xl bg-surface-container-highest/50">
+            <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/15 overflow-hidden">
+              <img id="modal-asset-img" alt="" class="w-6 h-6 rounded-full" src="" />
+            </div>
+            <div>
+              <div class="font-headline font-bold text-on-surface" id="modal-asset-shielded"></div>
+              <div class="text-xs text-on-surface-variant" id="modal-asset-fullname"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-end mb-3">
+              <label class="font-label text-sm uppercase tracking-widest text-on-surface-variant font-semibold">Amount to Supply</label>
+              <span class="text-xs font-medium text-on-surface-variant">Balance: <span class="text-on-surface" id="modal-balance">0.00</span></span>
+            </div>
+            <div class="relative group">
+              <input id="modal-amount" class="w-full text-2xl p-5 rounded-xl bg-surface-container-highest border border-transparent focus:border-primary/30 focus:outline-none text-on-surface placeholder:text-on-surface-variant/30 transition-colors" placeholder="0.00" type="text" inputmode="decimal" />
+              <button id="modal-max-btn" class="absolute right-4 top-1/2 -translate-y-1/2 bg-surface-container-low hover:bg-surface-container text-primary font-bold px-4 py-2 rounded-lg text-xs tracking-wider transition-colors">MAX</button>
+            </div>
+            <div id="modal-usd" class="text-right text-sm text-on-surface-variant mr-4 mt-2"></div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <button class="modal-pct-btn py-2 bg-surface-container-highest rounded-lg text-sm font-bold text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-pct="25">25%</button>
+            <button class="modal-pct-btn py-2 bg-surface-container-highest rounded-lg text-sm font-bold text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-pct="50">50%</button>
+            <button class="modal-pct-btn py-2 bg-surface-container-highest rounded-lg text-sm font-bold text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-pct="100">100%</button>
+          </div>
+
+          <div class="space-y-3 p-4 rounded-xl bg-surface-container-highest/30">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-on-surface-variant">Supply APY</span>
+              <span class="font-headline font-bold text-primary" id="modal-apy"></span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-on-surface-variant">Borrow APY</span>
+              <span class="font-headline font-bold text-on-surface" id="modal-borrow-apy"></span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-on-surface-variant">Pool Utilization</span>
+              <span class="font-headline font-bold text-on-surface" id="modal-utilization"></span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-outline-variant/10">
+              <span class="text-sm text-on-surface-variant">Est. Yearly Earnings</span>
+              <span class="font-headline font-bold text-primary" id="modal-yearly-earnings">—</span>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">LTV (Loan to Value)</span>
+              <span class="font-bold text-on-surface">80%</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">Liquidation Threshold</span>
+              <span class="font-bold text-on-surface">85%</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">Reserve Factor</span>
+              <span class="font-bold text-on-surface">10%</span>
+            </div>
+          </div>
+
+          <button id="modal-submit" class="w-full py-4 btn-primary text-lg rounded-xl cyan-glow flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">lock</span>
+            Encrypt &amp; Supply
+          </button>
+
+          <div class="flex items-center gap-3 p-3 rounded-lg bg-tertiary/5 border border-tertiary/10">
+            <span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+            <p class="text-xs text-on-surface-variant leading-relaxed">
+              Your deposit will be encrypted via FHE before submission to the pool.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function() {
+  const searchInput = document.getElementById('pool-search');
+  const rows = document.querySelectorAll('.pool-row');
+  const noResults = document.getElementById('no-results');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.toLowerCase().trim();
+      let visible = 0;
+      rows.forEach(row => {
+        const asset = row.dataset.asset.toLowerCase();
+        const shielded = row.dataset.shielded.toLowerCase();
+        const fullname = row.dataset.fullname.toLowerCase();
+        const match = !q || asset.includes(q) || shielded.includes(q) || fullname.includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      noResults.classList.toggle('hidden', visible > 0);
+    });
+  }
+
+  document.querySelectorAll('[data-sort]').forEach(th => {
+    let asc = false;
+    th.addEventListener('click', () => {
+      asc = !asc;
+      const key = th.dataset.sort;
+      const tbody = document.getElementById('pools-body');
+      const sorted = Array.from(rows).sort((a, b) => {
+        const va = parseFloat(a.dataset[key]);
+        const vb = parseFloat(b.dataset[key]);
+        return asc ? va - vb : vb - va;
+      });
+      sorted.forEach(r => tbody.appendChild(r));
+    });
+  });
+
+  const modal = document.getElementById('deposit-modal');
+  const backdrop = document.getElementById('modal-backdrop');
+  const closeBtn = document.getElementById('modal-close');
+  const amountInput = document.getElementById('modal-amount');
+  const maxBtn = document.getElementById('modal-max-btn');
+  const submitBtn = document.getElementById('modal-submit');
+  let currentAsset = null;
+
+  function getBalance() {
+    if (!currentAsset) return 0;
+    return window.fhield?.wallet?.getBalance(currentAsset.name) || 0;
+  }
+
+  function openModal(row) {
+    currentAsset = {
+      name: row.dataset.asset,
+      shielded: row.dataset.shielded,
+      fullname: row.dataset.fullname,
+      apy: parseFloat(row.dataset.apy),
+      borrowApy: parseFloat(row.dataset.borrowApy),
+      deposited: row.dataset.depositedFmt,
+      utilization: row.dataset.utilization,
+      img: row.dataset.img,
+    };
+
+    document.getElementById('modal-asset-name').textContent = currentAsset.shielded;
+    document.getElementById('modal-asset-shielded').textContent = currentAsset.shielded;
+    document.getElementById('modal-asset-fullname').textContent = currentAsset.fullname + ' (Shielded)';
+    document.getElementById('modal-asset-img').src = currentAsset.img;
+    document.getElementById('modal-asset-img').alt = currentAsset.name;
+    document.getElementById('modal-apy').textContent = currentAsset.apy + '%';
+    document.getElementById('modal-borrow-apy').textContent = currentAsset.borrowApy + '%';
+    document.getElementById('modal-utilization').textContent = currentAsset.utilization + '%';
+    const balance = getBalance();
+    document.getElementById('modal-balance').textContent = balance.toLocaleString() + ' ' + currentAsset.name;
+    document.getElementById('modal-yearly-earnings').textContent = '—';
+
+    amountInput.value = '';
+    document.getElementById('modal-usd').textContent = '';
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => amountInput.focus(), 100);
+  }
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    currentAsset = null;
+  }
+
+  function updateEarnings() {
+    if (!currentAsset) return;
+    const val = parseFloat(amountInput.value) || 0;
+    const usd = val.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    document.getElementById('modal-usd').textContent = val > 0 ? '≈ ' + usd : '';
+
+    if (val > 0) {
+      const yearly = val * (currentAsset.apy / 100);
+      document.getElementById('modal-yearly-earnings').textContent =
+        '~' + yearly.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) + '/yr';
+    } else {
+      document.getElementById('modal-yearly-earnings').textContent = '—';
+    }
+  }
+
+  document.querySelectorAll('.lend-deposit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const row = btn.closest('.pool-row');
+      openModal(row);
+    });
+  });
+
+  rows.forEach(row => {
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', () => openModal(row));
+  });
+
+  if (backdrop) backdrop.addEventListener('click', closeModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+  });
+
+  if (amountInput) amountInput.addEventListener('input', updateEarnings);
+
+  if (maxBtn) {
+    maxBtn.addEventListener('click', () => {
+      amountInput.value = getBalance();
+      amountInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  document.querySelectorAll('.modal-pct-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pct = parseInt(btn.dataset.pct);
+      amountInput.value = ((getBalance() * pct) / 100).toFixed(2);
+      amountInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+      const amount = amountInput.value;
+      if (!amount || parseFloat(amount) <= 0) return;
+      if (!window.fhield?.wallet?.isConnected()) {
+        window.fhield?.toast?.show('Please connect your wallet first', 'error');
+        return;
+      }
+
+      const originalHTML = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+
+      try {
+        submitBtn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Approving...</span>';
+        await window.fhield.contracts.deposit(currentAsset.name, amount);
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalHTML;
+        closeModal();
+        window.fhield.toast.show('Deposited ' + amount + ' ' + currentAsset.name, 'success');
+        window.fhield.wallet.loadBalances();
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalHTML;
+        window.fhield.toast.show(err.reason || err.message || 'Transaction failed', 'error');
+      }
+    });
+  }
+})();
+</script>

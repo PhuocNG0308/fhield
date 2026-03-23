@@ -1,0 +1,939 @@
+<% const borrowedAssets = new Set((position.borrows || []).map(b => b.asset)); %>
+<main class="flex-grow pt-32 pb-20 px-6 max-w-[1200px] mx-auto w-full">
+  <%- include('../partials/page-header', {
+    badgeIcon: 'security',
+    badgeText: 'FHE Encrypted',
+    title: 'Borrow Assets',
+    description: 'Access private liquidity without revealing your borrowing intent to the public mempool.',
+    headerClass: 'mb-10'
+  }) %>
+
+  <section class="space-y-6">
+    <div class="glass-panel p-6 rounded-xl border border-outline-variant/10">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h2 class="font-headline font-bold text-xl text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+          Borrowable Assets
+        </h2>
+        <div class="relative w-full sm:w-72">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
+          <input id="borrow-search" type="text" placeholder="Search assets..."
+                 class="w-full pl-10 pr-4 py-2.5 bg-surface-container-highest rounded-lg border border-transparent focus:border-primary/30 focus:outline-none text-sm text-on-surface placeholder:text-on-surface-variant/50 transition-colors" />
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full" id="borrow-table">
+          <thead>
+            <tr class="border-b border-outline-variant/10">
+              <th class="text-left py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold">Asset</th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold cursor-pointer select-none hover:text-primary transition-colors" data-sort="borrow-apy">
+                Borrow APY
+                <span class="material-symbols-outlined text-xs align-middle ml-0.5">unfold_more</span>
+              </th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold cursor-pointer select-none hover:text-primary transition-colors" data-sort="available">
+                Available
+                <span class="material-symbols-outlined text-xs align-middle ml-0.5">unfold_more</span>
+              </th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold">Utilization</th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold"></th>
+            </tr>
+          </thead>
+          <tbody id="borrow-body">
+            <% markets.forEach(function(m) { %>
+            <tr class="borrow-row border-b border-outline-variant/5 hover:bg-surface-container-high/30 transition-colors"
+                data-asset="<%= m.name %>"
+                data-fullname="<%= m.fullName %>"
+                data-borrow-apy="<%= m.borrowAPY %>"
+                data-available="<%= m.supplied - m.borrowed %>"
+                data-available-fmt="$<%= ((m.supplied - m.borrowed) / 1e6).toFixed(1) %>M"
+                data-utilization="<%= m.utilization %>"
+                data-supply-apy="<%= m.supplyAPY %>"
+                data-img="<%= m.img %>">
+              <td class="py-4 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/15 overflow-hidden">
+                    <img alt="<%= m.name %>" class="w-6 h-6 rounded-full" src="<%= m.img %>" />
+                  </div>
+                  <div>
+                    <div class="font-headline font-bold text-on-surface flex items-center gap-1.5">
+                      <%= m.name %>
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded bg-tertiary/10 text-tertiary text-[0.5625rem] font-bold uppercase tracking-wider">shielded</span>
+                    </div>
+                    <div class="text-xs text-on-surface-variant"><%= m.fullName %></div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <span class="font-headline font-bold text-error-300 text-lg"><%= m.borrowAPY %>%</span>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <span class="font-headline font-bold text-on-surface" data-fhe-value>$<%= ((m.supplied - m.borrowed) / 1e6).toFixed(1) %>M</span>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <div class="w-16 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+                    <div class="h-full bg-primary rounded-full" data-width="<%= m.utilization %>"></div>
+                  </div>
+                  <span class="text-sm text-on-surface-variant font-medium"><%= m.utilization %>%</span>
+                </div>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <% if (borrowedAssets.has(m.name)) { %>
+                <button class="borrow-manage-btn px-5 py-2.5 bg-surface-container-highest text-on-surface text-xs font-bold rounded-lg uppercase tracking-wider transition-all hover:bg-surface-container-high hover:scale-[1.02] active:scale-95 border border-outline-variant/15">
+                  Manage
+                </button>
+                <% } else { %>
+                <button class="borrow-open-btn px-5 py-2.5 bg-primary text-on-primary text-xs font-bold rounded-lg uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-95">
+                  Borrow
+                </button>
+                <% } %>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="borrow-no-results" class="hidden py-12 text-center">
+        <span class="material-symbols-outlined text-4xl text-on-surface-variant/30 mb-2 block">search_off</span>
+        <p class="text-sm text-on-surface-variant">No matching assets found</p>
+      </div>
+    </div>
+
+    <div class="glass-panel p-6 rounded-xl border border-outline-variant/10">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h2 class="font-headline font-bold text-xl text-on-surface flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">visibility_off</span>
+          My Collateral
+        </h2>
+        <div class="flex items-center gap-3">
+          <div class="px-4 py-2 rounded-lg bg-surface-container-highest text-sm">
+            <span class="text-on-surface-variant">Health Factor:</span>
+            <span class="font-headline font-bold text-primary ml-1" id="main-health-factor"><%= position.healthFactor %></span>
+          </div>
+          <div class="px-4 py-2 rounded-lg bg-surface-container-highest text-sm">
+            <span class="text-on-surface-variant">LTV:</span>
+            <span class="font-headline font-bold text-on-surface ml-1" id="main-ltv"><%= position.borrowingPowerUsed %>%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full" id="collateral-table">
+          <thead>
+            <tr class="border-b border-outline-variant/10">
+              <th class="text-left py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold">Asset</th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold">Amount</th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold">Value</th>
+              <th class="text-right py-3 px-4 text-[0.6875rem] font-label uppercase tracking-widest text-on-surface-variant font-semibold"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% position.collateral.forEach(function(c) { %>
+            <tr class="border-b border-outline-variant/5 hover:bg-surface-container-high/30 transition-colors" data-collateral-asset="<%= c.asset %>">
+              <td class="py-4 px-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-surface-variant flex items-center justify-center">
+                    <span class="material-symbols-outlined text-sm"><%= c.icon %></span>
+                  </div>
+                  <span class="text-sm font-bold"><%= c.asset %></span>
+                </div>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <span class="text-sm font-bold fhe-blur"><%= c.amount %></span>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <span class="text-sm font-bold text-on-surface fhe-blur"><%= c.usd %></span>
+              </td>
+              <td class="py-4 px-4 text-right">
+                <div class="flex items-center gap-2 justify-end">
+                  <button class="collateral-add-btn px-4 py-2 bg-primary/10 text-primary text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors" data-collateral-action="add" data-collateral-name="<%= c.asset %>">
+                    + Add
+                  </button>
+                  <button class="collateral-withdraw-btn px-4 py-2 bg-error/10 text-error text-xs font-bold rounded-lg hover:bg-error/20 transition-colors" data-collateral-action="withdraw" data-collateral-name="<%= c.asset %>">
+                    Withdraw
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-6 space-y-3">
+        <div class="flex justify-between text-xs font-label">
+          <span class="text-on-surface-variant">Borrowing Power Used</span>
+          <span class="text-primary font-bold"><%= position.borrowingPowerUsed %>%</span>
+        </div>
+        <div class="h-2 w-full bg-surface-container-lowest rounded-full overflow-hidden">
+          <div class="h-full bg-primary rounded-full shadow-[0_0_10px_rgba(76,215,246,0.5)]" id="borrow-power-bar" data-width="<%= position.borrowingPowerUsed %>"></div>
+        </div>
+        <div class="flex justify-between text-[10px] font-label text-on-surface-variant">
+          <span>Used: $<%= position.borrowingUsed.toLocaleString() %></span>
+          <span>Available: $<%= position.borrowingAvailable.toLocaleString() %></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="group p-5 rounded-xl bg-surface-container-low border border-outline-variant/10 relative overflow-hidden transition-all hover:bg-surface-container-high">
+        <div class="absolute right-0 top-0 p-2">
+          <span class="text-[8px] bg-tertiary/10 text-tertiary px-1.5 py-0.5 rounded font-black tracking-widest uppercase">Soon</span>
+        </div>
+        <div class="flex gap-4 items-center">
+          <div class="w-10 h-10 rounded-xl bg-surface-variant flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+            <span class="material-symbols-outlined text-tertiary">credit_score</span>
+          </div>
+          <div>
+            <div class="text-sm font-headline font-bold">DCS Credit Score</div>
+            <div class="text-[11px] text-on-surface-variant">Improve rates with encrypted on-chain credit history.</div>
+          </div>
+        </div>
+      </div>
+      <div class="group p-5 rounded-xl bg-surface-container-low border border-outline-variant/10 relative overflow-hidden transition-all hover:bg-surface-container-high">
+        <div class="absolute right-0 top-0 p-2">
+          <span class="text-[8px] bg-tertiary/10 text-tertiary px-1.5 py-0.5 rounded font-black tracking-widest uppercase">Soon</span>
+        </div>
+        <div class="flex gap-4 items-center">
+          <div class="w-10 h-10 rounded-xl bg-surface-variant flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+            <span class="material-symbols-outlined text-tertiary">local_fire_department</span>
+          </div>
+          <div>
+            <div class="text-sm font-headline font-bold">Phoenix Program</div>
+            <div class="text-[11px] text-on-surface-variant">Interest-free liquidity for verified liquidators.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-4 p-5 rounded-xl bg-tertiary/5 border border-tertiary/10">
+      <div class="w-10 h-10 rounded-full bg-tertiary/10 flex items-center justify-center text-tertiary shrink-0">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+      </div>
+      <p class="text-sm text-on-surface-variant leading-relaxed">
+        Borrow amounts are <span class="text-tertiary font-semibold">encrypted via FHE</span> &mdash; the contract checks collateral sufficiency without revealing your positions to validators or front-runners.
+      </p>
+    </div>
+  </section>
+
+  <div id="borrow-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-borrow-modal-backdrop></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="glass-panel w-full max-w-lg rounded-2xl border border-outline-variant/10 relative max-h-[90vh] overflow-y-auto" id="borrow-modal-content">
+        <div class="flex justify-between items-center p-6 pb-0">
+          <h3 class="font-headline font-bold text-xl text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">account_balance_wallet</span>
+            Borrow <span id="borrow-modal-asset-name"></span>
+          </h3>
+          <button data-borrow-modal-close class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-6">
+          <div class="flex items-center gap-3 p-4 rounded-xl bg-surface-container-highest/50">
+            <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/15 overflow-hidden">
+              <img id="borrow-modal-asset-img" alt="" class="w-6 h-6 rounded-full" src="" />
+            </div>
+            <div>
+              <div class="font-headline font-bold text-on-surface" id="borrow-modal-asset-display"></div>
+              <div class="text-xs text-on-surface-variant" id="borrow-modal-asset-fullname"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-end mb-3">
+              <label class="font-label text-sm uppercase tracking-widest text-on-surface-variant font-semibold">Amount to Borrow</label>
+              <span class="text-xs font-medium text-on-surface-variant">Available: <span class="text-on-surface" id="borrow-modal-available">0.00</span></span>
+            </div>
+            <div class="relative group">
+              <input id="borrow-modal-amount" class="w-full text-2xl p-5 rounded-xl bg-surface-container-highest border border-transparent focus:border-primary/30 focus:outline-none text-on-surface placeholder:text-on-surface-variant/30 transition-colors" placeholder="0.00" type="text" inputmode="decimal" />
+              <button id="borrow-modal-max-btn" class="absolute right-4 top-1/2 -translate-y-1/2 bg-surface-container-low hover:bg-surface-container text-primary font-bold px-4 py-2 rounded-lg text-xs tracking-wider transition-colors">MAX</button>
+            </div>
+            <div id="borrow-modal-usd" class="text-right text-sm text-on-surface-variant mr-4 mt-2"></div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <button class="borrow-pct-btn py-2 bg-surface-container-highest rounded-lg text-sm font-bold text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-pct="25">25%</button>
+            <button class="borrow-pct-btn py-2 bg-surface-container-highest rounded-lg text-sm font-bold text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-pct="50">50%</button>
+            <button class="borrow-pct-btn py-2 bg-surface-container-highest rounded-lg text-sm font-bold text-on-surface-variant hover:text-primary hover:bg-primary/5 transition-colors" data-pct="100">100%</button>
+          </div>
+
+          <div class="space-y-3 p-4 rounded-xl bg-surface-container-highest/30">
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-on-surface-variant">Borrow APY</span>
+              <span class="font-headline font-bold text-error-300" id="borrow-modal-apy"></span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-on-surface-variant">Pool Utilization</span>
+              <span class="font-headline font-bold text-on-surface" id="borrow-modal-utilization"></span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-outline-variant/10">
+              <span class="text-sm text-on-surface-variant">Est. Daily Interest</span>
+              <span class="font-headline font-bold text-error-300" id="borrow-modal-daily-interest">&mdash;</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm text-on-surface-variant">Est. Hourly Interest</span>
+              <span class="font-headline font-bold text-on-surface-variant text-xs" id="borrow-modal-hourly-interest">&mdash;</span>
+            </div>
+          </div>
+
+          <div class="space-y-3 p-4 rounded-xl bg-surface-container-highest/30 border border-outline-variant/10">
+            <div class="text-xs font-label uppercase tracking-widest text-on-surface-variant font-semibold mb-2">Position Impact Preview</div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">LTV</span>
+              <span class="font-bold" id="borrow-modal-ltv-preview">
+                <span class="text-on-surface" id="borrow-modal-ltv-current"><%= position.borrowingPowerUsed %>%</span>
+                <span class="text-on-surface-variant mx-1 hidden" id="borrow-modal-ltv-arrow">&rarr;</span>
+                <span id="borrow-modal-ltv-new" class="text-on-surface hidden"><%= position.borrowingPowerUsed %>%</span>
+              </span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">Health Factor</span>
+              <span class="font-bold" id="borrow-modal-hf-preview">
+                <span class="text-primary" id="borrow-modal-hf-current"><%= position.healthFactor %></span>
+                <span class="text-on-surface-variant mx-1 hidden" id="borrow-modal-hf-arrow">&rarr;</span>
+                <span id="borrow-modal-hf-new" class="text-primary hidden"><%= position.healthFactor %></span>
+              </span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">Liquidation Threshold</span>
+              <span class="font-bold text-on-surface">85%</span>
+            </div>
+          </div>
+
+          <div class="flex gap-2 p-3 rounded-lg bg-surface-container-highest/30">
+            <div class="flex items-center gap-1.5 flex-1 p-2 rounded bg-tertiary/5 border border-tertiary/10 opacity-50 cursor-not-allowed">
+              <span class="material-symbols-outlined text-tertiary text-sm">credit_score</span>
+              <span class="text-[10px] font-bold text-tertiary uppercase">DCS Score</span>
+              <span class="text-[8px] bg-tertiary/10 text-tertiary px-1 py-0.5 rounded font-black ml-auto">SOON</span>
+            </div>
+            <div class="flex items-center gap-1.5 flex-1 p-2 rounded bg-tertiary/5 border border-tertiary/10 opacity-50 cursor-not-allowed">
+              <span class="material-symbols-outlined text-tertiary text-sm">local_fire_department</span>
+              <span class="text-[10px] font-bold text-tertiary uppercase">Phoenix</span>
+              <span class="text-[8px] bg-tertiary/10 text-tertiary px-1 py-0.5 rounded font-black ml-auto">SOON</span>
+            </div>
+          </div>
+
+          <button id="borrow-modal-submit" class="w-full py-4 btn-primary text-lg rounded-xl cyan-glow flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">lock</span>
+            Encrypt &amp; Borrow
+          </button>
+
+          <div class="flex items-center gap-3 p-3 rounded-lg bg-tertiary/5 border border-tertiary/10">
+            <span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+            <p class="text-xs text-on-surface-variant leading-relaxed">
+              Your borrow will be encrypted via FHE before submission. Parameters remain private until valid proof is generated.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="manage-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-manage-modal-backdrop></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="glass-panel w-full max-w-lg rounded-2xl border border-outline-variant/10 relative max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center p-6 pb-0">
+          <h3 class="font-headline font-bold text-xl text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">tune</span>
+            Manage <span id="manage-modal-asset-name"></span>
+          </h3>
+          <button data-manage-modal-close class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-6">
+          <div class="flex items-center gap-3 p-4 rounded-xl bg-surface-container-highest/50">
+            <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/15 overflow-hidden">
+              <img id="manage-modal-asset-img" alt="" class="w-6 h-6 rounded-full" src="" />
+            </div>
+            <div>
+              <div class="font-headline font-bold text-on-surface" id="manage-modal-asset-display"></div>
+              <div class="text-xs text-on-surface-variant" id="manage-modal-asset-fullname"></div>
+            </div>
+          </div>
+
+          <div class="flex rounded-xl bg-surface-container-highest overflow-hidden" id="manage-tab-group">
+            <button class="manage-tab flex-1 py-3 text-sm font-bold text-center transition-colors bg-primary text-on-primary" data-manage-tab="borrow-more">Borrow More</button>
+            <button class="manage-tab flex-1 py-3 text-sm font-bold text-center transition-colors text-on-surface-variant hover:text-on-surface" data-manage-tab="repay">Repay</button>
+          </div>
+
+          <div id="manage-borrow-more-panel">
+            <div class="space-y-4">
+              <div>
+                <div class="flex justify-between items-end mb-3">
+                  <label class="font-label text-sm uppercase tracking-widest text-on-surface-variant font-semibold">Additional Amount</label>
+                  <span class="text-xs font-medium text-on-surface-variant">Available: <span class="text-on-surface" id="manage-borrow-available">0.00</span></span>
+                </div>
+                <div class="relative group">
+                  <input id="manage-borrow-amount" class="w-full text-2xl p-5 rounded-xl bg-surface-container-highest border border-transparent focus:border-primary/30 focus:outline-none text-on-surface placeholder:text-on-surface-variant/30 transition-colors" placeholder="0.00" type="text" inputmode="decimal" />
+                  <button id="manage-borrow-max-btn" class="absolute right-4 top-1/2 -translate-y-1/2 bg-surface-container-low hover:bg-surface-container text-primary font-bold px-4 py-2 rounded-lg text-xs tracking-wider transition-colors">MAX</button>
+                </div>
+              </div>
+
+              <div class="space-y-3 p-4 rounded-xl bg-surface-container-highest/30 border border-outline-variant/10">
+                <div class="text-xs font-label uppercase tracking-widest text-on-surface-variant font-semibold mb-2">Position Impact</div>
+                <div class="flex justify-between items-center text-sm">
+                  <span class="text-on-surface-variant">LTV</span>
+                  <span class="font-bold">
+                    <span class="text-on-surface" id="manage-ltv-current"><%= position.borrowingPowerUsed %>%</span>
+                    <span class="text-on-surface-variant mx-1 hidden" id="manage-ltv-arrow">&rarr;</span>
+                    <span id="manage-ltv-new" class="text-on-surface hidden"><%= position.borrowingPowerUsed %>%</span>
+                  </span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                  <span class="text-on-surface-variant">Health Factor</span>
+                  <span class="font-bold">
+                    <span class="text-primary" id="manage-hf-current"><%= position.healthFactor %></span>
+                    <span class="text-on-surface-variant mx-1 hidden" id="manage-hf-arrow">&rarr;</span>
+                    <span id="manage-hf-new" class="text-primary hidden"><%= position.healthFactor %></span>
+                  </span>
+                </div>
+              </div>
+
+              <button id="manage-borrow-submit" class="w-full py-4 btn-primary text-lg rounded-xl cyan-glow flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">lock</span>
+                Encrypt &amp; Borrow More
+              </button>
+            </div>
+          </div>
+
+          <div id="manage-repay-panel" class="hidden">
+            <div class="space-y-4">
+              <div>
+                <div class="flex justify-between items-end mb-3">
+                  <label class="font-label text-sm uppercase tracking-widest text-on-surface-variant font-semibold">Repay Amount</label>
+                  <span class="text-xs font-medium text-on-surface-variant">Wallet Balance: <span class="text-on-surface" id="manage-repay-wallet">0.00</span></span>
+                </div>
+                <div class="relative group">
+                  <input id="manage-repay-amount" class="w-full text-2xl p-5 rounded-xl bg-surface-container-highest border border-transparent focus:border-primary/30 focus:outline-none text-on-surface placeholder:text-on-surface-variant/30 transition-colors" placeholder="0.00" type="text" inputmode="decimal" />
+                  <button id="manage-repay-max-btn" class="absolute right-4 top-1/2 -translate-y-1/2 bg-surface-container-low hover:bg-surface-container text-primary font-bold px-4 py-2 rounded-lg text-xs tracking-wider transition-colors">MAX</button>
+                </div>
+              </div>
+
+              <div class="space-y-3 p-4 rounded-xl bg-surface-container-highest/30 border border-outline-variant/10">
+                <div class="text-xs font-label uppercase tracking-widest text-on-surface-variant font-semibold mb-2">Position Impact</div>
+                <div class="flex justify-between items-center text-sm">
+                  <span class="text-on-surface-variant">LTV</span>
+                  <span class="font-bold">
+                    <span class="text-on-surface" id="repay-ltv-current"><%= position.borrowingPowerUsed %>%</span>
+                    <span class="text-on-surface-variant mx-1 hidden" id="repay-ltv-arrow">&rarr;</span>
+                    <span id="repay-ltv-new" class="text-on-surface hidden"><%= position.borrowingPowerUsed %>%</span>
+                  </span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                  <span class="text-on-surface-variant">Health Factor</span>
+                  <span class="font-bold">
+                    <span class="text-primary" id="repay-hf-current"><%= position.healthFactor %></span>
+                    <span class="text-on-surface-variant mx-1 hidden" id="repay-hf-arrow">&rarr;</span>
+                    <span id="repay-hf-new" class="text-primary hidden"><%= position.healthFactor %></span>
+                  </span>
+                </div>
+              </div>
+
+              <button id="manage-repay-submit" class="w-full py-4 btn-primary text-lg rounded-xl cyan-glow flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">lock</span>
+                Encrypt &amp; Repay
+              </button>
+            </div>
+          </div>
+
+          <div class="flex gap-2 p-3 rounded-lg bg-surface-container-highest/30">
+            <div class="flex items-center gap-1.5 flex-1 p-2 rounded bg-tertiary/5 border border-tertiary/10 opacity-50 cursor-not-allowed">
+              <span class="material-symbols-outlined text-tertiary text-sm">credit_score</span>
+              <span class="text-[10px] font-bold text-tertiary uppercase">DCS Score</span>
+              <span class="text-[8px] bg-tertiary/10 text-tertiary px-1 py-0.5 rounded font-black ml-auto">SOON</span>
+            </div>
+            <div class="flex items-center gap-1.5 flex-1 p-2 rounded bg-tertiary/5 border border-tertiary/10 opacity-50 cursor-not-allowed">
+              <span class="material-symbols-outlined text-tertiary text-sm">local_fire_department</span>
+              <span class="text-[10px] font-bold text-tertiary uppercase">Phoenix</span>
+              <span class="text-[8px] bg-tertiary/10 text-tertiary px-1 py-0.5 rounded font-black ml-auto">SOON</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 p-3 rounded-lg bg-tertiary/5 border border-tertiary/10">
+            <span class="material-symbols-outlined text-tertiary text-sm" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+            <p class="text-xs text-on-surface-variant leading-relaxed">
+              All management operations are encrypted via FHE before on-chain execution.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="collateral-modal" class="fixed inset-0 z-[100] hidden">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-collateral-modal-backdrop></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="glass-panel w-full max-w-lg rounded-2xl border border-outline-variant/10 relative max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center p-6 pb-0">
+          <h3 class="font-headline font-bold text-xl text-on-surface flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary" id="collateral-modal-icon">add_circle</span>
+            <span id="collateral-modal-title">Add Collateral</span>
+            <span id="collateral-modal-asset-name"></span>
+          </h3>
+          <button data-collateral-modal-close class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        <div class="p-6 space-y-6">
+          <div>
+            <div class="flex justify-between items-end mb-3">
+              <label class="font-label text-sm uppercase tracking-widest text-on-surface-variant font-semibold" id="collateral-modal-label">Amount to Add</label>
+              <span class="text-xs font-medium text-on-surface-variant">Balance: <span class="text-on-surface" id="collateral-modal-balance">0.00</span></span>
+            </div>
+            <div class="relative group">
+              <input id="collateral-modal-amount" class="w-full text-2xl p-5 rounded-xl bg-surface-container-highest border border-transparent focus:border-primary/30 focus:outline-none text-on-surface placeholder:text-on-surface-variant/30 transition-colors" placeholder="0.00" type="text" inputmode="decimal" />
+              <button id="collateral-modal-max-btn" class="absolute right-4 top-1/2 -translate-y-1/2 bg-surface-container-low hover:bg-surface-container text-primary font-bold px-4 py-2 rounded-lg text-xs tracking-wider transition-colors">MAX</button>
+            </div>
+          </div>
+
+          <div class="space-y-3 p-4 rounded-xl bg-surface-container-highest/30 border border-outline-variant/10">
+            <div class="text-xs font-label uppercase tracking-widest text-on-surface-variant font-semibold mb-2">Position Impact Preview</div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">LTV</span>
+              <span class="font-bold">
+                <span class="text-on-surface" id="collateral-ltv-current"><%= position.borrowingPowerUsed %>%</span>
+                <span class="text-on-surface-variant mx-1 hidden" id="collateral-ltv-arrow">&rarr;</span>
+                <span id="collateral-ltv-new" class="text-on-surface hidden"><%= position.borrowingPowerUsed %>%</span>
+              </span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-on-surface-variant">Health Factor</span>
+              <span class="font-bold">
+                <span class="text-primary" id="collateral-hf-current"><%= position.healthFactor %></span>
+                <span class="text-on-surface-variant mx-1 hidden" id="collateral-hf-arrow">&rarr;</span>
+                <span id="collateral-hf-new" class="text-primary hidden"><%= position.healthFactor %></span>
+              </span>
+            </div>
+          </div>
+
+          <button id="collateral-modal-submit" class="w-full py-4 btn-primary text-lg rounded-xl cyan-glow flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">lock</span>
+            <span id="collateral-modal-submit-text">Encrypt &amp; Add Collateral</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="application/json" id="position-data">
+<%- JSON.stringify({ healthFactor: position.healthFactor, borrowingPowerUsed: position.borrowingPowerUsed, borrowingUsed: position.borrowingUsed, borrowingAvailable: position.borrowingAvailable, totalCollateralUSD: position.borrowingUsed + position.borrowingAvailable, liquidationThreshold: 0.85 }) %>
+</script>
+<script>
+(function() {
+  const POSITION = JSON.parse(document.getElementById('position-data').textContent);
+
+  // --- Search ---
+  const searchInput = document.getElementById('borrow-search');
+  const rows = document.querySelectorAll('.borrow-row');
+  const noResults = document.getElementById('borrow-no-results');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.toLowerCase().trim();
+      let visible = 0;
+      rows.forEach(row => {
+        const asset = (row.dataset.asset || '').toLowerCase();
+        const full = (row.dataset.fullname || '').toLowerCase();
+        const match = !q || asset.includes(q) || full.includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+      });
+      noResults.classList.toggle('hidden', visible > 0);
+    });
+  }
+
+  // --- Sort ---
+  document.querySelectorAll('#borrow-table th[data-sort]').forEach(th => {
+    let asc = true;
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      const tbody = document.getElementById('borrow-body');
+      const sorted = [...rows].sort((a, b) => {
+        const va = parseFloat(a.dataset[camel(key)]) || 0;
+        const vb = parseFloat(b.dataset[camel(key)]) || 0;
+        return asc ? va - vb : vb - va;
+      });
+      sorted.forEach(r => tbody.appendChild(r));
+      asc = !asc;
+    });
+  });
+
+  function camel(s) {
+    return s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  }
+
+  // --- Color logic for LTV/HF ---
+  function ltvColor(pct) {
+    if (pct >= 80) return 'text-red-400';
+    if (pct >= 60) return 'text-amber-400';
+    return 'text-on-surface';
+  }
+  function hfColor(val) {
+    if (val <= 1.1) return 'text-red-400';
+    if (val <= 1.5) return 'text-amber-400';
+    return 'text-primary';
+  }
+
+  // --- Borrow Modal ---
+  const borrowModal = document.getElementById('borrow-modal');
+  let currentBorrowAsset = null;
+
+  document.querySelectorAll('.borrow-open-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('tr');
+      currentBorrowAsset = {
+        name: row.dataset.asset,
+        fullName: row.dataset.fullname,
+        borrowAPY: parseFloat(row.dataset.borrowApy),
+        available: parseFloat(row.dataset.available),
+        availableFmt: row.dataset.availableFmt,
+        utilization: row.dataset.utilization,
+        img: row.dataset.img,
+      };
+      openBorrowModal(currentBorrowAsset);
+    });
+  });
+
+  function openBorrowModal(asset) {
+    document.getElementById('borrow-modal-asset-name').textContent = asset.name;
+    document.getElementById('borrow-modal-asset-display').textContent = asset.name;
+    document.getElementById('borrow-modal-asset-fullname').textContent = asset.fullName;
+    document.getElementById('borrow-modal-asset-img').src = asset.img;
+    document.getElementById('borrow-modal-available').textContent = asset.availableFmt;
+    document.getElementById('borrow-modal-apy').textContent = asset.borrowAPY + '%';
+    document.getElementById('borrow-modal-utilization').textContent = asset.utilization + '%';
+    document.getElementById('borrow-modal-amount').value = '';
+    updateBorrowPreview(0);
+    borrowModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeBorrowModal() {
+    borrowModal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  document.querySelector('[data-borrow-modal-backdrop]')?.addEventListener('click', closeBorrowModal);
+  document.querySelector('[data-borrow-modal-close]')?.addEventListener('click', closeBorrowModal);
+
+  document.getElementById('borrow-modal-amount')?.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value) || 0;
+    updateBorrowPreview(val);
+  });
+
+  document.getElementById('borrow-modal-max-btn')?.addEventListener('click', () => {
+    if (!currentBorrowAsset) return;
+    const maxVal = currentBorrowAsset.available;
+    document.getElementById('borrow-modal-amount').value = maxVal;
+    updateBorrowPreview(maxVal);
+  });
+
+  document.querySelectorAll('.borrow-pct-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!currentBorrowAsset) return;
+      const pct = parseInt(btn.dataset.pct);
+      const val = Math.floor(currentBorrowAsset.available * pct / 100);
+      document.getElementById('borrow-modal-amount').value = val;
+      updateBorrowPreview(val);
+    });
+  });
+
+  function updateBorrowPreview(amount) {
+    const apy = currentBorrowAsset ? currentBorrowAsset.borrowAPY : 0;
+    const dailyRate = apy / 100 / 365;
+    const hourlyRate = apy / 100 / 8760;
+    const dailyInterest = amount * dailyRate;
+    const hourlyInterest = amount * hourlyRate;
+    const hasAmount = amount > 0;
+
+    const usdEl = document.getElementById('borrow-modal-usd');
+    if (usdEl) usdEl.textContent = hasAmount ? '≈ $' + amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '';
+
+    const dailyEl = document.getElementById('borrow-modal-daily-interest');
+    if (dailyEl) dailyEl.textContent = hasAmount ? '$' + dailyInterest.toFixed(4) + '/day' : '—';
+
+    const hourlyEl = document.getElementById('borrow-modal-hourly-interest');
+    if (hourlyEl) hourlyEl.textContent = hasAmount ? '$' + hourlyInterest.toFixed(6) + '/hr' : '—';
+
+    ['borrow-modal-ltv', 'borrow-modal-hf'].forEach(p => {
+      const arrowEl = document.getElementById(p + '-arrow');
+      const newEl = document.getElementById(p + '-new');
+      if (arrowEl) arrowEl.classList.toggle('hidden', !hasAmount);
+      if (newEl) newEl.classList.toggle('hidden', !hasAmount);
+    });
+
+    if (hasAmount) {
+      const newBorrowed = POSITION.borrowingUsed + amount;
+      const totalCollateral = POSITION.totalCollateralUSD;
+      const newLTV = totalCollateral > 0 ? (newBorrowed / totalCollateral * 100) : 0;
+      const newHF = newBorrowed > 0 ? (totalCollateral * POSITION.liquidationThreshold / newBorrowed) : POSITION.healthFactor;
+
+      const ltvNewEl = document.getElementById('borrow-modal-ltv-new');
+      if (ltvNewEl) { ltvNewEl.textContent = newLTV.toFixed(1) + '%'; ltvNewEl.className = ltvColor(newLTV); }
+      const hfNewEl = document.getElementById('borrow-modal-hf-new');
+      if (hfNewEl) { hfNewEl.textContent = newHF.toFixed(2); hfNewEl.className = hfColor(newHF); }
+    }
+  }
+
+  document.getElementById('borrow-modal-submit')?.addEventListener('click', async function() {
+    const amount = document.getElementById('borrow-modal-amount').value;
+    if (!amount || parseFloat(amount) <= 0 || !currentBorrowAsset) return;
+    await executeTx(this, 'borrow', currentBorrowAsset.name, amount, closeBorrowModal);
+  });
+
+  // --- Manage Modal ---
+  const manageModal = document.getElementById('manage-modal');
+  let currentManageAsset = null;
+
+  document.querySelectorAll('.borrow-manage-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('tr');
+      currentManageAsset = {
+        name: row.dataset.asset,
+        fullName: row.dataset.fullname,
+        borrowAPY: parseFloat(row.dataset.borrowApy),
+        available: parseFloat(row.dataset.available),
+        availableFmt: row.dataset.availableFmt,
+        img: row.dataset.img,
+      };
+      openManageModal(currentManageAsset);
+    });
+  });
+
+  function openManageModal(asset) {
+    document.getElementById('manage-modal-asset-name').textContent = asset.name;
+    document.getElementById('manage-modal-asset-display').textContent = asset.name;
+    document.getElementById('manage-modal-asset-fullname').textContent = asset.fullName;
+    document.getElementById('manage-modal-asset-img').src = asset.img;
+    document.getElementById('manage-borrow-available').textContent = asset.availableFmt;
+    const walletBal = window.fhield?.wallet?.getBalance(asset.name) || 0;
+    document.getElementById('manage-repay-wallet').textContent = walletBal.toLocaleString() + ' ' + asset.name;
+    document.getElementById('manage-borrow-amount').value = '';
+    document.getElementById('manage-repay-amount').value = '';
+    switchManageTab('borrow-more');
+    manageModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeManageModal() {
+    manageModal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  document.querySelector('[data-manage-modal-backdrop]')?.addEventListener('click', closeManageModal);
+  document.querySelector('[data-manage-modal-close]')?.addEventListener('click', closeManageModal);
+
+  function switchManageTab(tab) {
+    document.querySelectorAll('.manage-tab').forEach(t => {
+      const isActive = t.dataset.manageTab === tab;
+      t.classList.toggle('bg-primary', isActive);
+      t.classList.toggle('text-on-primary', isActive);
+      t.classList.toggle('text-on-surface-variant', !isActive);
+    });
+    document.getElementById('manage-borrow-more-panel').classList.toggle('hidden', tab !== 'borrow-more');
+    document.getElementById('manage-repay-panel').classList.toggle('hidden', tab !== 'repay');
+  }
+
+  document.querySelectorAll('.manage-tab').forEach(t => {
+    t.addEventListener('click', () => switchManageTab(t.dataset.manageTab));
+  });
+
+  document.getElementById('manage-borrow-amount')?.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value) || 0;
+    updateManageBorrowPreview(val);
+  });
+
+  document.getElementById('manage-borrow-max-btn')?.addEventListener('click', () => {
+    if (!currentManageAsset) return;
+    document.getElementById('manage-borrow-amount').value = currentManageAsset.available;
+    updateManageBorrowPreview(currentManageAsset.available);
+  });
+
+  function updateManageBorrowPreview(amount) {
+    const hasAmount = amount > 0;
+    ['manage-ltv', 'manage-hf'].forEach(p => {
+      const arrowEl = document.getElementById(p + '-arrow');
+      const newEl = document.getElementById(p + '-new');
+      if (arrowEl) arrowEl.classList.toggle('hidden', !hasAmount);
+      if (newEl) newEl.classList.toggle('hidden', !hasAmount);
+    });
+
+    if (hasAmount) {
+      const newBorrowed = POSITION.borrowingUsed + amount;
+      const total = POSITION.totalCollateralUSD;
+      const newLTV = total > 0 ? (newBorrowed / total * 100) : 0;
+      const newHF = newBorrowed > 0 ? (total * POSITION.liquidationThreshold / newBorrowed) : POSITION.healthFactor;
+
+      const ltvEl = document.getElementById('manage-ltv-new');
+      if (ltvEl) { ltvEl.textContent = newLTV.toFixed(1) + '%'; ltvEl.className = ltvColor(newLTV); }
+      const hfEl = document.getElementById('manage-hf-new');
+      if (hfEl) { hfEl.textContent = newHF.toFixed(2); hfEl.className = hfColor(newHF); }
+    }
+  }
+
+  document.getElementById('manage-repay-amount')?.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value) || 0;
+    updateRepayPreview(val);
+  });
+
+  document.getElementById('manage-repay-max-btn')?.addEventListener('click', () => {
+    const maxRepay = POSITION.borrowingUsed;
+    document.getElementById('manage-repay-amount').value = maxRepay;
+    updateRepayPreview(maxRepay);
+  });
+
+  function updateRepayPreview(amount) {
+    const hasAmount = amount > 0;
+    ['repay-ltv', 'repay-hf'].forEach(p => {
+      const arrowEl = document.getElementById(p + '-arrow');
+      const newEl = document.getElementById(p + '-new');
+      if (arrowEl) arrowEl.classList.toggle('hidden', !hasAmount);
+      if (newEl) newEl.classList.toggle('hidden', !hasAmount);
+    });
+
+    if (hasAmount) {
+      const newBorrowed = Math.max(0, POSITION.borrowingUsed - amount);
+      const total = POSITION.totalCollateralUSD;
+      const newLTV = total > 0 ? (newBorrowed / total * 100) : 0;
+      const newHF = newBorrowed > 0 ? (total * POSITION.liquidationThreshold / newBorrowed) : 99;
+
+      const ltvEl = document.getElementById('repay-ltv-new');
+      if (ltvEl) { ltvEl.textContent = newLTV.toFixed(1) + '%'; ltvEl.className = ltvColor(newLTV); }
+      const hfEl = document.getElementById('repay-hf-new');
+      if (hfEl) { hfEl.textContent = Math.min(newHF, 99).toFixed(2); hfEl.className = hfColor(newHF); }
+    }
+  }
+
+  document.getElementById('manage-borrow-submit')?.addEventListener('click', async function() {
+    const amount = document.getElementById('manage-borrow-amount').value;
+    if (!amount || parseFloat(amount) <= 0 || !currentManageAsset) return;
+    await executeTx(this, 'borrow', currentManageAsset.name, amount, closeManageModal);
+  });
+
+  document.getElementById('manage-repay-submit')?.addEventListener('click', async function() {
+    const amount = document.getElementById('manage-repay-amount').value;
+    if (!amount || parseFloat(amount) <= 0 || !currentManageAsset) return;
+    await executeTx(this, 'repay', currentManageAsset.name, amount, closeManageModal);
+  });
+
+  // --- Collateral Modal ---
+  const collateralModal = document.getElementById('collateral-modal');
+  let collateralAction = 'add';
+  let collateralAssetName = '';
+
+  document.querySelectorAll('[data-collateral-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      collateralAction = btn.dataset.collateralAction;
+      collateralAssetName = btn.dataset.collateralName;
+      openCollateralModal(collateralAction, collateralAssetName);
+    });
+  });
+
+  function openCollateralModal(action, asset) {
+    const isAdd = action === 'add';
+    document.getElementById('collateral-modal-icon').textContent = isAdd ? 'add_circle' : 'remove_circle';
+    document.getElementById('collateral-modal-title').textContent = isAdd ? 'Add Collateral' : 'Withdraw Collateral';
+    document.getElementById('collateral-modal-asset-name').textContent = asset;
+    document.getElementById('collateral-modal-label').textContent = isAdd ? 'Amount to Add' : 'Amount to Withdraw';
+    document.getElementById('collateral-modal-submit-text').innerHTML = isAdd ? 'Encrypt &amp; Add Collateral' : 'Encrypt &amp; Withdraw';
+    const balance = isAdd ? (window.fhield?.wallet?.getBalance(asset) || 0) : 0;
+    document.getElementById('collateral-modal-balance').textContent = isAdd ? balance.toLocaleString() + ' ' + asset : 'Encrypted';
+    document.getElementById('collateral-modal-amount').value = '';
+    updateCollateralPreview(0);
+    collateralModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCollateralModal() {
+    collateralModal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  document.querySelector('[data-collateral-modal-backdrop]')?.addEventListener('click', closeCollateralModal);
+  document.querySelector('[data-collateral-modal-close]')?.addEventListener('click', closeCollateralModal);
+
+  document.getElementById('collateral-modal-amount')?.addEventListener('input', (e) => {
+    const val = parseFloat(e.target.value) || 0;
+    updateCollateralPreview(val);
+  });
+
+  function updateCollateralPreview(amount) {
+    const hasAmount = amount > 0;
+    ['collateral-ltv', 'collateral-hf'].forEach(p => {
+      const arrowEl = document.getElementById(p + '-arrow');
+      const newEl = document.getElementById(p + '-new');
+      if (arrowEl) arrowEl.classList.toggle('hidden', !hasAmount);
+      if (newEl) newEl.classList.toggle('hidden', !hasAmount);
+    });
+
+    if (hasAmount) {
+      const isAdd = collateralAction === 'add';
+      const delta = isAdd ? amount : -amount;
+      const newCollateral = Math.max(0, POSITION.totalCollateralUSD + delta * 1);
+      const borrowed = POSITION.borrowingUsed;
+      const newLTV = newCollateral > 0 ? (borrowed / newCollateral * 100) : 0;
+      const newHF = borrowed > 0 ? (newCollateral * POSITION.liquidationThreshold / borrowed) : POSITION.healthFactor;
+
+      const ltvEl = document.getElementById('collateral-ltv-new');
+      if (ltvEl) { ltvEl.textContent = newLTV.toFixed(1) + '%'; ltvEl.className = ltvColor(newLTV); }
+      const hfEl = document.getElementById('collateral-hf-new');
+      if (hfEl) { hfEl.textContent = newHF.toFixed(2); hfEl.className = hfColor(newHF); }
+    }
+  }
+
+  document.getElementById('collateral-modal-submit')?.addEventListener('click', async function() {
+    const amount = document.getElementById('collateral-modal-amount').value;
+    if (!amount || parseFloat(amount) <= 0) return;
+    const action = collateralAction === 'add' ? 'deposit' : 'withdraw';
+    await executeTx(this, action, collateralAssetName, amount, closeCollateralModal);
+  });
+
+  async function executeTx(btn, action, asset, amount, onSuccess) {
+    if (!window.fhield?.wallet?.isConnected()) {
+      window.fhield?.toast?.show('Please connect your wallet first', 'error');
+      return;
+    }
+
+    const original = btn.innerHTML;
+    btn.disabled = true;
+
+    try {
+      btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span><span>Approving...</span>';
+      const ci = window.fhield.contracts;
+
+      if (action === 'borrow') await ci.borrow(asset, amount);
+      else if (action === 'repay') await ci.repay(asset, amount);
+      else if (action === 'deposit') await ci.deposit(asset, amount);
+      else if (action === 'withdraw') await ci.withdraw(asset, amount);
+
+      btn.disabled = false;
+      btn.innerHTML = original;
+      if (onSuccess) onSuccess();
+      window.fhield.toast.show(action.charAt(0).toUpperCase() + action.slice(1) + ' of ' + amount + ' ' + asset + ' confirmed!', 'success');
+      window.fhield.wallet.loadBalances();
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerHTML = original;
+      window.fhield.toast.show(err.reason || err.message || 'Transaction failed', 'error');
+    }
+  }
+
+  // --- Escape key ---
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeBorrowModal();
+      closeManageModal();
+      closeCollateralModal();
+    }
+  });
+})();
+</script>

@@ -1,0 +1,322 @@
+<main class="flex-grow pt-32 pb-20 px-6 max-w-[680px] mx-auto w-full" id="swap-page">
+  <%- include('../partials/page-header', {
+    badgeIcon: 'enhanced_encryption',
+    badgeText: 'CoFHE Protocol',
+    title: 'Shield & Unshield Assets',
+    description: 'Convert public tokens to shielded state using Fhenix FHE — or withdraw back to public.',
+    headerClass: 'mb-10'
+  }) %>
+
+  <!-- Status Indicator -->
+  <div class="flex items-center gap-3 mb-8">
+    <div class="w-2.5 h-2.5 bg-primary rounded-full animate-pulse-glow"></div>
+    <span class="font-label text-[10px] uppercase tracking-[0.2em] text-primary font-bold">End-to-End Encryption Active</span>
+  </div>
+
+  <!-- Swap Card -->
+  <div class="relative group mb-8">
+    <div class="absolute -inset-4 bg-primary/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none"></div>
+
+    <div class="relative glass-panel rounded-2xl border border-outline-variant/10 overflow-hidden">
+      <!-- Tab Toggle -->
+      <div class="flex p-1.5 gap-1.5 bg-surface-container-lowest m-4 rounded-xl">
+        <button id="tab-shield" class="swap-tab flex-1 py-3.5 text-xs font-headline font-bold uppercase tracking-widest rounded-lg transition-all bg-surface-container text-primary">
+          Shield
+        </button>
+        <button id="tab-unshield" class="swap-tab flex-1 py-3.5 text-xs font-headline font-bold uppercase tracking-widest rounded-lg transition-all text-on-surface-variant hover:text-on-surface">
+          Unshield
+        </button>
+      </div>
+
+      <div class="px-6 pb-6 space-y-4">
+        <!-- From Section -->
+        <div class="bg-surface-container rounded-xl p-5">
+          <div class="flex justify-between items-center mb-4">
+            <span id="from-label" class="font-label text-[10px] uppercase tracking-widest text-outline-variant font-bold">From: Public Wallet</span>
+            <span class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
+              Balance: <span id="from-balance" class="text-on-surface font-medium"><span class="skeleton inline-block w-16 h-3"></span></span>
+            </span>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <input id="swap-amount" type="text" inputmode="decimal" placeholder="0.00"
+              class="bg-transparent border-none text-3xl md:text-4xl font-headline font-bold text-on-surface focus:ring-0 p-0 w-full placeholder:text-on-surface-variant/30" />
+            <button id="asset-selector-btn" class="flex items-center gap-2 bg-surface-container-highest px-4 py-2.5 rounded-full hover:bg-surface-bright transition-colors shrink-0">
+              <div id="asset-icon-wrap" class="w-7 h-7 rounded-full bg-surface-container overflow-hidden flex items-center justify-center">
+                <span class="skeleton w-full h-full rounded-full"></span>
+              </div>
+              <span id="asset-name-display" class="font-headline font-bold text-sm text-on-surface">...</span>
+              <span class="material-symbols-outlined text-xs text-on-surface-variant">expand_more</span>
+            </button>
+          </div>
+          <div class="flex justify-end mt-2">
+            <button id="max-btn" class="text-[10px] font-bold text-primary uppercase tracking-wider hover:underline">Max</button>
+          </div>
+        </div>
+
+        <!-- Arrow Bridge -->
+        <div class="flex justify-center -my-8 relative z-10">
+          <button id="swap-direction-btn" class="bg-surface-container-highest p-3 rounded-full border-4 border-surface-container-low text-primary hover:bg-surface-bright transition-colors">
+            <span id="arrow-icon" class="material-symbols-outlined">south</span>
+          </button>
+        </div>
+
+        <!-- To Section -->
+        <div class="bg-surface-container rounded-xl p-5 pt-7">
+          <div class="flex justify-between items-center mb-4">
+            <span id="to-label" class="font-label text-[10px] uppercase tracking-widest text-outline-variant font-bold">To: Shielded State</span>
+            <span id="to-badge" class="font-label text-[10px] uppercase tracking-widest text-primary">CoFHE Vault</span>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <div id="output-amount" class="text-3xl md:text-4xl font-headline font-bold text-primary/40">0.00</div>
+            <div id="output-token" class="flex items-center gap-2 bg-surface-container-highest px-4 py-2.5 rounded-full border border-primary/20 shrink-0">
+              <div class="w-6 h-6 rounded-full bg-gradient-to-br from-primary to-background p-0.5 flex items-center justify-center">
+                <span class="material-symbols-outlined text-[10px] text-white" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+              </div>
+              <span id="output-token-name" class="font-headline font-bold text-sm">s...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Security Badge -->
+        <div class="flex items-center justify-center gap-2 py-3">
+          <span class="material-symbols-outlined text-primary text-sm" style="font-variation-settings: 'FILL' 1;">security</span>
+          <span id="security-text" class="font-label text-[10px] uppercase tracking-[0.1em] text-outline">Data encrypted locally before sending</span>
+        </div>
+
+        <!-- Action Button -->
+        <button id="swap-submit" class="w-full py-5 btn-primary text-sm rounded-xl cyan-glow font-headline font-bold uppercase tracking-widest">
+          Shield Assets
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metadata -->
+  <div class="grid grid-cols-2 gap-8 border-t border-outline-variant/10 pt-6 mb-8">
+    <div>
+      <div class="font-label text-[10px] uppercase tracking-widest text-outline-variant mb-1.5">Relay Fee</div>
+      <div class="font-headline font-bold text-on-surface text-sm">0.0012 ETH</div>
+    </div>
+    <div>
+      <div class="font-label text-[10px] uppercase tracking-widest text-outline-variant mb-1.5">Privacy Level</div>
+      <div class="font-headline font-bold text-primary text-sm">Maximum (FHE L2)</div>
+    </div>
+  </div>
+
+  <!-- Asset Selector Modal -->
+  <div id="asset-modal" class="fixed inset-0 z-[9999] hidden">
+    <div id="asset-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-6">
+      <div class="relative bg-surface-container rounded-2xl border border-outline-variant/10 w-full max-w-md max-h-[70vh] overflow-hidden">
+        <div class="flex justify-between items-center p-6 pb-4">
+          <h3 class="font-headline font-bold text-lg text-on-surface">Select Token</h3>
+          <button id="asset-modal-close" class="text-on-surface-variant hover:text-on-surface transition-colors">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <div class="px-6 pb-4">
+          <input id="asset-search" type="text" placeholder="Search by name or symbol..."
+            class="w-full px-4 py-3 bg-surface-container-highest rounded-xl border border-transparent focus:border-primary/30 focus:outline-none text-sm text-on-surface placeholder:text-on-surface-variant/50 transition-colors" />
+        </div>
+        <div id="asset-list" class="px-6 pb-6 space-y-2 overflow-y-auto max-h-[40vh]">
+          <div class="flex items-center gap-3 p-3 rounded-xl"><div class="skeleton w-10 h-10 rounded-full"></div><div><div class="skeleton w-20 h-4 mb-1"></div><div class="skeleton w-14 h-3"></div></div></div>
+          <div class="flex items-center gap-3 p-3 rounded-xl"><div class="skeleton w-10 h-10 rounded-full"></div><div><div class="skeleton w-16 h-4 mb-1"></div><div class="skeleton w-12 h-3"></div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FHE Info -->
+  <div class="p-5 rounded-xl bg-primary/5 border border-primary/10 flex items-start gap-4">
+    <span class="material-symbols-outlined text-primary text-xl mt-0.5" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+    <div>
+      <p class="text-sm font-bold text-on-surface">Fully Homomorphic Encryption</p>
+      <p class="text-xs text-on-surface-variant leading-relaxed mt-1">Shielded assets are encrypted using CoFHE by Fhenix. Only you can decrypt and view your balances with a private viewing key.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+(function() {
+  let assets = [];
+  let selectedAsset = null;
+  let mode = 'shield';
+
+  const els = {
+    tabShield: document.getElementById('tab-shield'),
+    tabUnshield: document.getElementById('tab-unshield'),
+    fromLabel: document.getElementById('from-label'),
+    fromBalance: document.getElementById('from-balance'),
+    toLabel: document.getElementById('to-label'),
+    toBadge: document.getElementById('to-badge'),
+    swapAmount: document.getElementById('swap-amount'),
+    outputAmount: document.getElementById('output-amount'),
+    outputTokenName: document.getElementById('output-token-name'),
+    assetSelectorBtn: document.getElementById('asset-selector-btn'),
+    assetNameDisplay: document.getElementById('asset-name-display'),
+    assetIconWrap: document.getElementById('asset-icon-wrap'),
+    arrowIcon: document.getElementById('arrow-icon'),
+    swapDirectionBtn: document.getElementById('swap-direction-btn'),
+    swapSubmit: document.getElementById('swap-submit'),
+    securityText: document.getElementById('security-text'),
+    maxBtn: document.getElementById('max-btn'),
+    assetModal: document.getElementById('asset-modal'),
+    assetModalClose: document.getElementById('asset-modal-close'),
+    assetModalBackdrop: document.getElementById('asset-modal-backdrop'),
+    assetSearch: document.getElementById('asset-search'),
+    assetList: document.getElementById('asset-list'),
+  };
+
+  function setMode(m) {
+    mode = m;
+    const isShield = mode === 'shield';
+
+    els.tabShield.classList.toggle('bg-surface-container', isShield);
+    els.tabShield.classList.toggle('text-primary', isShield);
+    els.tabShield.classList.toggle('text-on-surface-variant', !isShield);
+    els.tabUnshield.classList.toggle('bg-surface-container', !isShield);
+    els.tabUnshield.classList.toggle('text-primary', !isShield);
+    els.tabUnshield.classList.toggle('text-on-surface-variant', isShield);
+
+    els.fromLabel.textContent = isShield ? 'From: Public Wallet' : 'From: Shielded State';
+    els.toLabel.textContent = isShield ? 'To: Shielded State' : 'To: Public Wallet';
+    els.toBadge.textContent = isShield ? 'CoFHE Vault' : 'Public Network';
+    els.arrowIcon.textContent = isShield ? 'south' : 'north';
+    els.securityText.textContent = isShield ? 'Data encrypted locally before sending' : 'Generating ZK-Proof locally';
+    els.swapSubmit.textContent = isShield ? 'Shield Assets' : 'Unshield Assets';
+    els.swapAmount.value = '';
+    els.outputAmount.textContent = '0.00';
+
+    if (selectedAsset) selectAsset(selectedAsset);
+  }
+
+  function selectAsset(asset) {
+    selectedAsset = asset;
+    const isShield = mode === 'shield';
+
+    els.assetIconWrap.innerHTML = '<img alt="' + asset.name + '" class="w-full h-full object-cover" src="' + asset.img + '" />';
+    els.assetNameDisplay.textContent = isShield ? asset.name : asset.shieldedName;
+    els.outputTokenName.textContent = isShield ? asset.shieldedName : asset.name;
+    els.fromBalance.textContent = (isShield ? asset.publicBalance : asset.shieldedBalance) + ' ' + (isShield ? asset.name : asset.shieldedName);
+
+    closeAssetModal();
+  }
+
+  function renderAssetList(filter) {
+    const q = (filter || '').toLowerCase();
+    const filtered = assets.filter(a =>
+      !q || a.name.toLowerCase().includes(q) || a.fullName.toLowerCase().includes(q)
+    );
+
+    if (filtered.length === 0) {
+      els.assetList.innerHTML = '<p class="text-center text-sm text-on-surface-variant py-6">No matching tokens</p>';
+      return;
+    }
+
+    els.assetList.innerHTML = filtered.map(a => {
+      const bal = mode === 'shield' ? a.publicBalance + ' ' + a.name : a.shieldedBalance + ' ' + a.shieldedName;
+      return '<button class="asset-option w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-highest transition-colors text-left" data-asset="' + a.name + '">' +
+        '<div class="flex items-center gap-3">' +
+          '<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden"><img alt="' + a.name + '" class="w-7 h-7" src="' + a.img + '" /></div>' +
+          '<div><p class="text-sm font-bold text-on-surface">' + a.name + '</p><p class="text-[10px] text-on-surface-variant">' + a.fullName + '</p></div>' +
+        '</div>' +
+        '<span class="text-xs text-on-surface-variant font-medium">' + bal + '</span>' +
+      '</button>';
+    }).join('');
+
+    els.assetList.querySelectorAll('.asset-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const a = assets.find(x => x.name === btn.dataset.asset);
+        if (a) selectAsset(a);
+      });
+    });
+  }
+
+  function openAssetModal() {
+    els.assetSearch.value = '';
+    renderAssetList('');
+    els.assetModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    els.assetSearch.focus();
+  }
+
+  function closeAssetModal() {
+    els.assetModal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  els.tabShield.addEventListener('click', () => setMode('shield'));
+  els.tabUnshield.addEventListener('click', () => setMode('unshield'));
+  els.swapDirectionBtn.addEventListener('click', () => setMode(mode === 'shield' ? 'unshield' : 'shield'));
+  els.assetSelectorBtn.addEventListener('click', openAssetModal);
+  els.assetModalClose.addEventListener('click', closeAssetModal);
+  els.assetModalBackdrop.addEventListener('click', closeAssetModal);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAssetModal(); });
+
+  els.assetSearch.addEventListener('input', () => renderAssetList(els.assetSearch.value));
+
+  els.swapAmount.addEventListener('input', () => {
+    const v = parseFloat(els.swapAmount.value) || 0;
+    els.outputAmount.textContent = v > 0 ? v.toFixed(4) : '0.00';
+    els.outputAmount.classList.toggle('text-primary/40', v <= 0);
+    els.outputAmount.classList.toggle('text-primary', v > 0);
+  });
+
+  els.maxBtn.addEventListener('click', () => {
+    if (!selectedAsset) return;
+    const bal = mode === 'shield' ? selectedAsset.publicBalance : selectedAsset.shieldedBalance;
+    els.swapAmount.value = bal;
+    els.swapAmount.dispatchEvent(new Event('input'));
+  });
+
+  els.swapSubmit.addEventListener('click', async function() {
+    const amount = parseFloat(els.swapAmount.value);
+    if (!amount || amount <= 0 || !selectedAsset) return;
+
+    if (!window.fhield?.wallet?.isConnected()) {
+      window.fhield?.toast?.show('Please connect your wallet first', 'error');
+      return;
+    }
+
+    const original = this.innerHTML;
+    this.disabled = true;
+
+    try {
+      const ci = window.fhield.contracts;
+      if (mode === 'shield') {
+        this.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Approving...';
+        await ci.wrap(selectedAsset.name, els.swapAmount.value);
+      } else {
+        this.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">progress_activity</span> Unwrapping...';
+        await ci.unwrap(selectedAsset.name, els.swapAmount.value);
+      }
+
+      this.disabled = false;
+      this.innerHTML = original;
+      window.fhield.toast.show((mode === 'shield' ? 'Shielded' : 'Unshielded') + ' ' + els.swapAmount.value + ' ' + selectedAsset.name, 'success');
+      els.swapAmount.value = '';
+      els.outputAmount.textContent = '0.00';
+      els.outputAmount.classList.remove('text-primary');
+      els.outputAmount.classList.add('text-primary/40');
+      window.fhield.wallet.loadBalances();
+    } catch (err) {
+      this.disabled = false;
+      this.innerHTML = original;
+      window.fhield.toast.show(err.reason || err.message || 'Transaction failed', 'error');
+    }
+  });
+
+  async function loadAssets() {
+    try {
+      const res = await fetch('/swap/api/assets');
+      if (!res.ok) throw new Error('Failed');
+      assets = await res.json();
+      if (assets.length > 0) selectAsset(assets[0]);
+    } catch (e) {
+      console.error('Failed to load swap assets:', e);
+    }
+  }
+
+  loadAssets();
+})();
+</script>

@@ -1,0 +1,8 @@
+const ASSET_META = {
+  USDC: { name: 'USDC', fullName: 'USD Coin', shieldedName: 'sUSDC', color: 'blue', icon: 'monetization_on', decimals: 6, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAob1IajYjR12hk8jmwsbOftulSUOvG9sgJ6o56FO6qVNEIL7X6nuBU7NKwVuGHqnQGiAMOVIj3ztSpAZ3xRFG1_WTu2_lyf4XvLoJ14u-P1uUz_Q6Ru2XNzSgzyO0iuHBPDeWEv_SOjEtCOBdYfs7U7BawfhOxIIPEfMWYJCMLmOasjwPNlJXWCX8YOexgIRM0-QDQv2FGQ6mSFG5M7MZeJEHgc0daeMtHBSUf0qcha5lRHoL4Agidg0WLnza-DFbnODHXH_RuvP-E' },
+  ETH:  { name: 'ETH',  fullName: 'Ethereum', shieldedName: 'sETH', color: 'indigo', icon: 'currency_bitcoin', decimals: 18, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCaucZo28ry_LhItyS3oG3y6USIvf_z6pvhMPFPSvV1n5dRENbslM_rTGo2HWvFGX1jrlWv-Ze2NLHaDvBTF99C85vnmj4Rp9qB9-63iAQwrcUqUCzPTcd4nPaEiuB7oWdMNXcPScHbz31O8RS61aqOam5QKw5BHYUM9a0z7DPGNFMdqRge3M7kG1H4a5lbV9UIwdbhFNMd9jOsBzr_M9lyV2I4KweGvFf6dcGfUt3isTBZwv7xpJzhe6BPmRF2RFM565ivgCrpBqCE' },
+  USDT: { name: 'USDT', fullName: 'Tether USD', shieldedName: 'sUSDT', color: 'green', icon: 'monetization_on', decimals: 6, img: 'https://assets.coingecko.com/coins/images/325/standard/Tether.png' },
+  WBTC: { name: 'WBTC', fullName: 'Wrapped BTC', shieldedName: 'sWBTC', color: 'orange', icon: 'currency_bitcoin', decimals: 8, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBxhjx1316Ri7CfO3YAFGsFY88O-JAmLwUe0MnRKYupwgeYYHS9Xu5WU-4ntre70xNuq2TLDj9fZ9-k0mW-MwRsxHGbp8rlNa4rmYusO4hmQoZee2B9-M6JxbTZ17dGYg6nYQHhRgYzQPCRP_eOw7bBXkcCMAryxb0jxO7fV1IqodD3yq_zCwOOXtkpMxcdtwMgjgWgObalzxbziXmITlPzHNdJNJl06zQN1iET4vK3wO_BwJa4rUzZ-gMhjCp3-E51P7gaD2Tgknc1' },
+};
+
+module.exports = ASSET_META;

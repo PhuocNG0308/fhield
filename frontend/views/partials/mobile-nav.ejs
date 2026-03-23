@@ -1,0 +1,22 @@
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 bg-[#001623] z-50 border-t border-outline-variant/15">
+  <a class="flex flex-col items-center justify-center <%= activePage === 'dashboard' ? 'text-primary bg-surface-container rounded-lg px-4 py-1' : 'text-white/50 hover:text-white' %>" href="/dashboard">
+    <span class="material-symbols-outlined">grid_view</span>
+    <span class="font-body font-medium text-[0.75rem] tracking-tight">Dashboard</span>
+  </a>
+  <a class="flex flex-col items-center justify-center <%= activePage === 'lend' ? 'text-primary bg-surface-container rounded-lg px-4 py-1' : 'text-white/50 hover:text-white' %>" href="/lend">
+    <span class="material-symbols-outlined">south_west</span>
+    <span class="font-body font-medium text-[0.75rem] tracking-tight">Lend</span>
+  </a>
+  <a class="flex flex-col items-center justify-center <%= activePage === 'borrow' ? 'text-primary bg-surface-container rounded-lg px-4 py-1' : 'text-white/50 hover:text-white' %>" href="/borrow">
+    <span class="material-symbols-outlined">north_east</span>
+    <span class="font-body font-medium text-[0.75rem] tracking-tight">Borrow</span>
+  </a>
+  <a class="flex flex-col items-center justify-center <%= activePage === 'portfolio' ? 'text-primary bg-surface-container rounded-lg px-4 py-1' : 'text-white/50 hover:text-white' %>" href="/portfolio">
+    <span class="material-symbols-outlined">account_balance_wallet</span>
+    <span class="font-body font-medium text-[0.75rem] tracking-tight">Portfolio</span>
+  </a>
+  <a class="flex flex-col items-center justify-center <%= activePage === 'privacy' ? 'text-primary bg-surface-container rounded-lg px-4 py-1' : 'text-white/50 hover:text-white' %>" href="/markets">
+    <span class="material-symbols-outlined">enhanced_encryption</span>
+    <span class="font-body font-medium text-[0.75rem] tracking-tight">Privacy</span>
+  </a>
+</nav>

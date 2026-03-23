@@ -1,0 +1,40 @@
+﻿# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docs source (generated from fhield-docs)
+docs/
+
+# Smart contracts generated
+smart-contracts/artifacts/
+smart-contracts/cache/
+smart-contracts/typechain-types/
+smart-contracts/ignition/deployments/
+smart-contracts/coverage/
+smart-contracts/coverage.json
+
+# Docusaurus generated
+fhield-docs/build/
+fhield-docs/.docusaurus/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+*.tsbuildinfo

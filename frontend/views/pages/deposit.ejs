@@ -1,0 +1,130 @@
+<main class="flex-grow pt-32 pb-20 px-6 max-w-[1200px] mx-auto w-full">
+  <%- include('../partials/page-header', {
+    badgeIcon: 'savings',
+    badgeText: 'FHE Protected',
+    title: 'Supply Assets',
+    description: 'Securely earn yield on your encrypted assets.',
+    headerClass: 'mb-10'
+  }) %>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+    <section class="lg:col-span-7 space-y-6">
+      <div class="glass-panel p-8 rounded-xl border border-outline-variant/10" data-requires-wallet>
+        <div class="flex justify-between items-center mb-6">
+          <label class="font-label text-sm uppercase tracking-widest text-on-surface-variant font-semibold">Select Asset</label>
+          <span class="text-xs font-medium text-on-surface-variant">Wallet Balance: <span class="text-on-surface">1,500.00 <%= selected.name %></span></span>
+        </div>
+
+        <div class="bg-surface-container-highest p-4 rounded-xl flex items-center justify-between cursor-pointer border border-transparent hover:border-primary/20 transition-all mb-8">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined">currency_exchange</span>
+            </div>
+            <div>
+              <div class="font-headline font-bold text-on-surface"><%= selected.name %></div>
+              <div class="text-xs text-on-surface-variant"><%= selected.fullName %></div>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-on-surface-variant">expand_more</span>
+        </div>
+
+        <div class="mb-8">
+          <div class="flex justify-between items-end mb-3">
+            <label class="font-label text-sm uppercase tracking-widest text-on-surface-variant font-semibold">Amount to Supply</label>
+          </div>
+          <div class="relative group">
+            <input class="input-field text-2xl p-5 rounded-xl" placeholder="0.00" type="text"
+                   data-usd-display="#deposit-usd" data-usd-price="1" />
+            <button data-max-btn data-max-value="1500" class="absolute right-4 top-1/2 -translate-y-1/2 bg-surface-container-low hover:bg-surface-container text-primary font-bold px-4 py-2 rounded-lg text-xs tracking-wider transition-colors">MAX</button>
+          </div>
+          <div id="deposit-usd" class="text-right text-sm text-on-surface-variant mr-4 mt-2"></div>
+        </div>
+
+        <button data-action-btn="Supply" class="w-full py-5 btn-primary text-lg rounded-xl cyan-glow mb-8">
+          Encrypt &amp; Supply
+        </button>
+
+        <div class="grid grid-cols-3 gap-4 pt-6 border-t border-outline-variant/10">
+          <div class="text-center">
+            <div class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-1">Supply APY</div>
+            <div class="font-headline font-bold text-primary text-xl"><%= selected.supplyAPY %>%</div>
+          </div>
+          <div class="text-center">
+            <div class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-1">Utilization</div>
+            <div class="font-headline font-bold text-on-surface text-xl"><%= selected.utilization %>%</div>
+          </div>
+          <div class="text-center">
+            <div class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-1">Your Supply</div>
+            <div class="font-headline font-bold text-on-surface text-xl">0.00</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4 p-5 rounded-xl bg-tertiary/5 border border-tertiary/10">
+        <div class="w-10 h-10 rounded-full bg-tertiary/10 flex items-center justify-center text-tertiary shrink-0">
+          <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shield_lock</span>
+        </div>
+        <p class="text-sm text-on-surface-variant leading-relaxed">
+          Your supply balance is <span class="text-tertiary font-semibold">encrypted via FHE</span> &mdash; only you can view the exact amount through your private session keys.
+        </p>
+      </div>
+    </section>
+
+    <aside class="lg:col-span-5 space-y-6">
+      <div class="glass-panel p-8 rounded-xl border border-outline-variant/10">
+        <h3 class="font-headline font-bold text-xl text-on-surface mb-6 flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">analytics</span>
+          Asset Parameters
+        </h3>
+        <div class="space-y-4">
+          <div class="flex justify-between items-center py-2">
+            <span class="text-on-surface-variant font-medium">LTV (Loan to Value)</span>
+            <span class="font-headline font-bold text-on-surface">80%</span>
+          </div>
+          <div class="flex justify-between items-center py-2">
+            <span class="text-on-surface-variant font-medium">Liquidation Threshold</span>
+            <span class="font-headline font-bold text-on-surface">85%</span>
+          </div>
+          <div class="flex justify-between items-center py-2">
+            <span class="text-on-surface-variant font-medium">Reserve Factor</span>
+            <span class="font-headline font-bold text-on-surface">10%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-panel p-8 rounded-xl border border-outline-variant/10">
+        <h3 class="font-headline font-bold text-xl text-on-surface mb-6">Transaction Flow</h3>
+        <div class="space-y-8 relative">
+          <div class="absolute left-[15px] top-4 bottom-4 w-px bg-outline-variant/30"></div>
+          <div class="relative flex items-center gap-6">
+            <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary-fixed z-10">
+              <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'wght' 700;">check</span>
+            </div>
+            <div>
+              <div class="font-headline font-bold text-on-surface">Approve ERC20</div>
+              <div class="text-xs text-primary font-medium">Transaction Signed</div>
+            </div>
+          </div>
+          <div class="relative flex items-center gap-6">
+            <div class="w-8 h-8 rounded-full bg-surface-container-high border-2 border-primary/40 flex items-center justify-center text-primary z-10">
+              <span class="material-symbols-outlined text-sm">hourglass_empty</span>
+            </div>
+            <div>
+              <div class="font-headline font-bold text-on-surface-variant">Deposit to TrustLendPool</div>
+              <div class="text-xs text-on-surface-variant">Pending Approval...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-xl overflow-hidden h-40 bg-surface-container relative">
+        <img class="w-full h-full object-cover opacity-40 mix-blend-luminosity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyg0Q2MueZrzVUUjewKYvpTLaOOGbvw7hHTGL0sAzNMT7VSTsU1TWZlm-_FxnFi2SPQVDlrrUnnwyWB8GbQ-MBFuvyyFX4tR8xv9U4O4HXSLszcvB7bne7_PPTsVnvtLqEe0giZ7R2CsJ0F-l8OGwkCZNGGnhubXY73frB2eVl2GS7W7p0FEtJrggsocScnGdZDqqWg6oDRqH3sKGuLkqoFk_L-Bd281QtBFtgzw2FGHflM0pG6M6qhPDMLDnplIK0248ajeJ2qlX_" alt="" />
+        <div class="absolute inset-0 bg-gradient-to-t from-surface-container-lowest to-transparent"></div>
+        <div class="absolute bottom-4 left-4">
+          <div class="text-[10px] uppercase tracking-widest text-primary font-black mb-1">Security Audit</div>
+          <div class="text-sm font-headline font-bold text-on-surface">Verified by Fhield Protocol</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>

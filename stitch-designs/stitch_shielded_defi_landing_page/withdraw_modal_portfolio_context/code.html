@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Shielded Protocol - Withdraw sETH</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-tertiary-fixed": "#002020",
+              "on-tertiary": "#003738",
+              "on-background": "#cfe5f8",
+              "inverse-primary": "#00696b",
+              "tertiary-container": "#0ad9dc",
+              "on-tertiary-container": "#005a5c",
+              "on-error": "#690005",
+              "background": "#001522",
+              "on-primary-container": "#005a5c",
+              "surface-variant": "#223745",
+              "surface-bright": "#263c4a",
+              "primary-fixed": "#50f9fc",
+              "on-secondary-fixed-variant": "#454747",
+              "on-tertiary-fixed-variant": "#004f51",
+              "outline": "#849493",
+              "on-secondary-container": "#b4b5b5",
+              "surface-container-low": "#061e2b",
+              "tertiary": "#4bf6f9",
+              "on-secondary-fixed": "#1a1c1c",
+              "tertiary-fixed": "#50f9fc",
+              "on-surface": "#cfe5f8",
+              "primary-container": "#0ad9dc",
+              "on-secondary": "#2f3131",
+              "error": "#ffb4ab",
+              "surface-container-highest": "#223745",
+              "error-container": "#93000a",
+              "tertiary-fixed-dim": "#18dcdf",
+              "on-error-container": "#ffdad6",
+              "secondary": "#c6c6c7",
+              "surface-tint": "#18dcdf",
+              "surface-container-high": "#172c3a",
+              "on-primary": "#003738",
+              "outline-variant": "#3b4949",
+              "inverse-surface": "#cfe5f8",
+              "surface-container": "#0b222f",
+              "on-surface-variant": "#bacac9",
+              "secondary-fixed": "#e2e2e2",
+              "primary-fixed-dim": "#18dcdf",
+              "surface-container-lowest": "#00101b",
+              "surface-dim": "#001522",
+              "on-primary-fixed": "#002020",
+              "secondary-fixed-dim": "#c6c6c7",
+              "primary": "#4bf6f9",
+              "inverse-on-surface": "#1d3341",
+              "surface": "#001522"
+            },
+            fontFamily: {
+              "headline": ["Space Grotesk"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #001522;
+            color: #FFFFFF;
+        }
+    </style>
+</head>
+<body class="font-body selection:bg-primary/30">
+<header class="fixed top-0 left-0 w-full flex justify-between items-center px-6 h-20 bg-[#001623] border-b border-[#3b4949]/15 z-50">
+<div class="text-2xl font-headline font-bold tracking-tighter text-[#FFFFFF]">SHIELDED</div>
+<div class="hidden md:flex gap-8 items-center">
+<span class="font-headline uppercase tracking-widest text-sm text-[#0AD9DC] font-bold">Portfolio</span>
+<span class="font-headline uppercase tracking-widest text-sm text-[#FFFFFF]/60 hover:bg-[#0b222f] transition-colors duration-200 px-2 py-1">Trade</span>
+<span class="font-headline uppercase tracking-widest text-sm text-[#FFFFFF]/60 hover:bg-[#0b222f] transition-colors duration-200 px-2 py-1">Privacy</span>
+<span class="font-headline uppercase tracking-widest text-sm text-[#FFFFFF]/60 hover:bg-[#0b222f] transition-colors duration-200 px-2 py-1">Settings</span>
+</div>
+<div class="flex items-center gap-4 text-[#0AD9DC]">
+<span class="material-symbols-outlined cursor-pointer hover:bg-[#0b222f] p-2 rounded transition-all">visibility</span>
+<span class="material-symbols-outlined cursor-pointer hover:bg-[#0b222f] p-2 rounded transition-all">lock</span>
+<span class="material-symbols-outlined cursor-pointer hover:bg-[#0b222f] p-2 rounded transition-all">account_balance_wallet</span>
+</div>
+</header>
+<main class="min-h-screen pt-24 pb-20 px-6 flex items-center justify-center relative overflow-hidden">
+<div class="absolute inset-0 z-0 opacity-10 pointer-events-none">
+<div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary blur-[120px] rounded-full"></div>
+<div class="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary blur-[100px] rounded-full"></div>
+</div>
+<div class="z-10 w-full max-w-lg bg-surface-container border border-outline-variant/15 p-8 relative overflow-hidden shadow-2xl">
+<div class="flex justify-between items-start mb-12">
+<div>
+<h1 class="font-headline text-3xl font-bold tracking-tight text-white mb-1">Withdraw sETH</h1>
+<p class="font-label text-xs uppercase tracking-widest text-on-surface-variant">Portfolio • Shielded Vault</p>
+</div>
+<button class="text-white/40 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-3xl">close</span>
+</button>
+</div>
+<div class="mb-10">
+<div class="flex justify-between mb-3 items-end">
+<label class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Amount to Withdraw</label>
+<span class="font-label text-[10px] uppercase tracking-widest text-primary">Max available: 12.485 sETH</span>
+</div>
+<div class="relative group">
+<input class="w-full bg-surface-container-lowest border-none font-headline text-4xl font-bold text-white px-0 py-4 focus:ring-0 placeholder-white/10 transition-all border-b-2 border-transparent focus:border-primary" type="text" value="8.000"/>
+<div class="absolute right-0 bottom-4 font-headline text-2xl text-on-surface-variant">sETH</div>
+<div class="h-[2px] w-full bg-outline-variant/30 absolute bottom-0"></div>
+</div>
+</div>
+<div class="mb-12">
+<div class="flex justify-between mb-4">
+<label class="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">Health Factor Impact</label>
+<span class="font-headline text-sm font-bold text-white">1.82 <span class="text-white/30 mx-1">→</span> <span class="text-primary">1.24</span></span>
+</div>
+<div class="h-1.5 w-full bg-surface-container-highest flex rounded-full overflow-hidden">
+<div class="h-full bg-primary w-2/3"></div>
+<div class="h-full bg-error/40 w-1/3"></div>
+</div>
+<div class="flex justify-between mt-2">
+<span class="font-label text-[9px] uppercase tracking-tighter text-on-surface-variant">Current: Safe</span>
+<span class="font-label text-[9px] uppercase tracking-tighter text-error">Liquidation Threshold</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-5 mb-10 border-l-2 border-primary">
+<div class="flex gap-4 items-start">
+<span class="material-symbols-outlined text-primary text-xl">security</span>
+<div>
+<p class="font-label text-[10px] uppercase tracking-widest text-primary font-bold mb-1">Security Protocol Active</p>
+<p class="text-xs text-on-surface-variant leading-relaxed">Withdrawals are encrypted using Zero-Knowledge proofs. Your transaction will be batched to preserve privacy.</p>
+</div>
+</div>
+</div>
+<div class="space-y-4">
+<button class="w-full bg-primary text-on-primary py-5 font-headline font-bold uppercase tracking-widest text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">lock</span>
+                    Encrypt &amp; Withdraw
+                </button>
+<button class="w-full bg-transparent border border-outline-variant/20 text-white py-4 font-label font-medium uppercase tracking-widest text-[10px] hover:bg-white/5 transition-all">
+                    Cancel Transaction
+                </button>
+</div>
+<div class="mt-8 flex justify-center">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-primary rounded-full animate-pulse shadow-[0_0_8px_#0AD9DC]"></div>
+<span class="font-label text-[9px] uppercase tracking-widest text-primary">System Secure • Vault v1.0.4</span>
+</div>
+</div>
+</div>
+</main>
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center h-16 px-4 bg-[#001623]/90 backdrop-blur-xl border-t border-[#3b4949]/15 z-50">
+<div class="flex flex-col items-center justify-center text-[#0AD9DC] p-2">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pie_chart</span>
+<span class="font-label text-[10px] font-semibold uppercase tracking-tighter mt-1">Portfolio</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#FFFFFF]/30 p-2">
+<span class="material-symbols-outlined">swap_horiz</span>
+<span class="font-label text-[10px] font-semibold uppercase tracking-tighter mt-1">Trade</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#FFFFFF]/30 p-2">
+<span class="material-symbols-outlined">security</span>
+<span class="font-label text-[10px] font-semibold uppercase tracking-tighter mt-1">Privacy</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#FFFFFF]/30 p-2">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label text-[10px] font-semibold uppercase tracking-tighter mt-1">Account</span>
+</div>
+</nav>
+</body></html>

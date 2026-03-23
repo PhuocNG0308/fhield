@@ -1,0 +1,39 @@
+.features {
+  padding: 3rem 0 5rem;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.featureCol {
+  display: flex;
+}
+
+.builtWithSection {
+  margin-top: 4rem;
+}
+
+.builtWithGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 996px) {
+  .featureGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .builtWithGrid {
+    grid-template-columns: 1fr;
+  }
+}
