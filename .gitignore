@@ -19,6 +19,9 @@ smart-contracts/ignition/deployments/
 smart-contracts/coverage/
 smart-contracts/coverage.json
 
+# Stitch designs
+stitch-designs/
+
 # Docusaurus generated
 fhield-docs/build/
 fhield-docs/.docusaurus/
