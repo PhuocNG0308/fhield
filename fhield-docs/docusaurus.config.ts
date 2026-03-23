@@ -9,11 +9,11 @@ const config: Config = {
   tagline: 'Privacy-First FHE DeFi Lending Protocol',
   favicon: 'img/fhield-icon.png',
 
-  url: 'https://docs.fhield.io',
-  baseUrl: '/',
+  url: 'https://phuocng0308.github.io',
+  baseUrl: '/fhield/',
 
-  organizationName: 'fhield',
-  projectName: 'fhield-docs',
+  organizationName: 'PhuocNG0308',
+  projectName: 'fhield',
 
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
