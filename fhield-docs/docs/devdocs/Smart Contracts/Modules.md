@@ -5,7 +5,7 @@ title: Modules
 
 # Modules
 
-Fhield includes two **stub modules** that serve as extension points for future features. Both currently return neutral values (0%) but define the interfaces for credit scoring and liquidation relief.
+fhield includes two **stub modules** that serve as extension points for future features. Both currently return neutral values (0%) but define the interfaces for credit scoring and liquidation relief.
 
 ## CreditScoreStub
 

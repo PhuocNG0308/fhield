@@ -7,7 +7,7 @@ title: Deployment
 
 ## Deploy Contracts
 
-Fhield uses Hardhat Ignition for deployment. The deployment sequence matters because contracts reference each other.
+fhield uses Hardhat Ignition for deployment. The deployment sequence matters because contracts reference each other.
 
 ### Deployment Order
 

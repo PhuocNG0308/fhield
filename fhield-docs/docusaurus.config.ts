@@ -5,7 +5,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
 const config: Config = {
-  title: 'Fhield',
+  title: 'fhield',
   tagline: 'Privacy-First FHE DeFi Lending Protocol',
   favicon: 'img/fhield-icon.png',
 
@@ -54,7 +54,8 @@ const config: Config = {
   ],
   themeConfig: {
     metadata: [
-      {name: 'keywords', content: 'Fhield, TrustLend, DeFi, FHE, Fully Homomorphic Encryption, Lending, Privacy, Fhenix, Encrypted Lending, Confidential DeFi'},
+      {name: 'description', content: 'Developer documentation for fhield — a privacy-first DeFi lending protocol powered by Fully Homomorphic Encryption (FHE) on Fhenix. Explore the TrustLend smart contract architecture, encrypted user flows, FHE privacy model, and integration guides.'},
+      {name: 'keywords', content: 'fhield, TrustLend, DeFi, FHE, Fully Homomorphic Encryption, Lending, Privacy, Fhenix, Encrypted Lending, Confidential DeFi'},
       {name: 'twitter:card', content: 'summary_large_image'}
     ],
     image: 'img/Splash.webp',
@@ -63,9 +64,9 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Fhield',
+      title: 'fhield',
       logo: {
-        alt: 'Fhield',
+        alt: 'fhield',
         src: 'img/fhield-icon.png',
         href: '/',
       },
@@ -87,7 +88,7 @@ const config: Config = {
     footer: {
       style: 'dark',
       links: [],
-      copyright: `© ${new Date().getFullYear()} Fhield`,
+      copyright: `© ${new Date().getFullYear()} fhield`,
     },
     prism: {
       theme: prismThemes.github,

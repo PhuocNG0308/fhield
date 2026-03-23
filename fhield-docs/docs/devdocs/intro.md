@@ -3,15 +3,15 @@ sidebar_position: 1
 title: Overview
 ---
 
-# Welcome to Fhield
+# Welcome to fhield
 
-**Fhield** is a privacy-first DeFi lending protocol built on **Fhenix CoFHE** (Fully Homomorphic Encryption). Users can deposit collateral, borrow assets, and manage positions with **fully encrypted balances** — no one can see your collateral amounts or debt levels except you.
+**fhield** is a privacy-first DeFi lending protocol built on **Fhenix CoFHE** (Fully Homomorphic Encryption). Users can deposit collateral, borrow assets, and manage positions with **fully encrypted balances** — no one can see your collateral amounts or debt levels except you.
 
-## What Makes Fhield Different?
+## What Makes fhield Different?
 
-Traditional DeFi lending protocols (Aave, Compound) expose every user's position on-chain. Anyone can see how much you deposited, borrowed, and your liquidation risk. Fhield solves this by leveraging FHE:
+Traditional DeFi lending protocols (Aave, Compound) expose every user's position on-chain. Anyone can see how much you deposited, borrowed, and your liquidation risk. fhield solves this by leveraging FHE:
 
-| Feature | Traditional DeFi | Fhield |
+| Feature | Traditional DeFi | fhield |
 |---------|-----------------|--------|
 | Collateral balance | Public on-chain | Encrypted (`euint64`) |
 | Debt balance | Public on-chain | Encrypted (`euint64`) |
@@ -21,7 +21,7 @@ Traditional DeFi lending protocols (Aave, Compound) expose every user's position
 
 ## Core Protocol: TrustLend
 
-The smart contract suite powering Fhield is called **TrustLend** — an AAVE V3-inspired lending pool with FHE privacy:
+The smart contract suite powering fhield is called **TrustLend** — an AAVE V3-inspired lending pool with FHE privacy:
 
 | Component | Purpose |
 |-----------|---------|
