@@ -5,9 +5,9 @@ title: FHE Privacy Model
 
 # FHE Privacy Model
 
-Fhield uses Fhenix's Fully Homomorphic Encryption (FHE) to keep user positions private. This page explains the encryption model, key FHE patterns used in the protocol, and trade-offs.
+fhield uses Fhenix's Fully Homomorphic Encryption (FHE) to keep user positions private. This page explains the encryption model, key FHE patterns used in the protocol, and trade-offs.
 
-## Encrypted Types in Fhield
+## Encrypted Types in fhield
 
 | Type | Usage |
 |------|-------|
@@ -26,7 +26,7 @@ In traditional Solidity, you would write:
 require(collateralValue >= newDebtValue, "Unhealthy position");
 ```
 
-In FHE, encrypted values cannot be used in `require()` or `if` statements. Instead, Fhield uses `FHE.select()`:
+In FHE, encrypted values cannot be used in `require()` or `if` statements. Instead, fhield uses `FHE.select()`:
 
 ```solidity
 ebool isHealthy = FHE.gte(collateralValue, newDebtValue);

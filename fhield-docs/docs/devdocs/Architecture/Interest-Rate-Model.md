@@ -7,7 +7,7 @@ import InterestRateChart from '@site/src/components/InterestRateChart';
 
 # Interest Rate Model
 
-Fhield uses an AAVE V3-style **kinked interest rate curve** that adjusts borrowing and supply rates based on pool utilization. The model incentivizes balanced usage — rates stay low when utilization is below optimal, and spike sharply above it to encourage repayments.
+fhield uses an AAVE V3-style **kinked interest rate curve** that adjusts borrowing and supply rates based on pool utilization. The model incentivizes balanced usage — rates stay low when utilization is below optimal, and spike sharply above it to encourage repayments.
 
 ## Rate Strategy Parameters
 

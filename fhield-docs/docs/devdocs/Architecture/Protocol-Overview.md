@@ -5,20 +5,20 @@ title: Protocol Overview
 
 # Protocol Overview
 
-Fhield (TrustLend) is an **encrypted lending protocol** that mirrors the AAVE V3 architecture while replacing user-facing balances with FHE-encrypted values. The protocol maintains privacy for individual positions while keeping global pool parameters (total deposits, rates, indices) in plaintext for interest calculation integrity.
+fhield (TrustLend) is an **encrypted lending protocol** that mirrors the AAVE V3 architecture while replacing user-facing balances with FHE-encrypted values. The protocol maintains privacy for individual positions while keeping global pool parameters (total deposits, rates, indices) in plaintext for interest calculation integrity.
 
 ## High-Level Architecture
 
 ```mermaid
 graph TD
     subgraph Frontend["🖥️ Frontend"]
-        FE["Express.js + EJS + Ethers.js<br/>Dashboard | Lend | Borrow | Portfolio | Markets"]
+        FE["Express.js + EJS + Ethers.js<br/>Dashboard · Lend · Borrow<br/>Portfolio · Markets"]
     end
 
     FE -->|"JSON-RPC"| Core
 
     subgraph Contracts["📜 Smart Contracts"]
-        Core["TrustLendPool — Core<br/>deposit | borrow | repay | withdraw | liquidation"]
+        Core["TrustLendPool — Core<br/>deposit · borrow · repay<br/>withdraw · liquidation"]
         AC["AssetConfig"]
         RL["ReserveLogic"]
         OR["PriceOracle"]
@@ -35,7 +35,7 @@ graph TD
         SL["Slim Listener"]
         FHEOS["fheOS"]
         TN["Threshold Network"]
-        REG["ACL Registry | CT Registry | Plaintext Storage"]
+        REG["ACL Registry · CT Registry<br/>Plaintext Storage"]
         TM --> SL --> FHEOS --> TN
     end
 ```
