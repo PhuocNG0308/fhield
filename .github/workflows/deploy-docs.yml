@@ -3,8 +3,6 @@ name: Deploy Docs to GitHub Pages
 on:
   push:
     branches: [master]
-    paths:
-      - 'fhield-docs/**'
   workflow_dispatch:
 
 permissions:
