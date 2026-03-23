@@ -9,7 +9,7 @@ yarn.lock
 .env.*.local
 
 # Docs source (generated from fhield-docs)
-docs/
+/docs/
 
 # Smart contracts generated
 smart-contracts/artifacts/
