@@ -316,6 +316,14 @@ table {
 .markdown table {
   display: block;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+}
+
+.markdown table td,
+.markdown table th {
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 table thead tr {
@@ -704,8 +712,51 @@ div[class*='tocCollapsibleContent'] {
   padding-left: 1rem;
 }
 
+table td code,
+table th code {
+  white-space: nowrap;
+}
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 996px) {
+  .col[class*='docItemCol'] {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  article {
+    padding: 0 0.25rem;
+  }
+
+  .markdown h1:first-child {
+    font-size: 1.75rem;
+  }
+
+  .pagination-nav__link {
+    padding: 1rem;
+  }
+
+  .docusaurus-mermaid-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .docusaurus-mermaid-container svg {
+    min-width: 600px;
+    height: auto;
+  }
+}
+
 .docusaurus-mermaid-container {
   text-align: left;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .docusaurus-mermaid-container svg {

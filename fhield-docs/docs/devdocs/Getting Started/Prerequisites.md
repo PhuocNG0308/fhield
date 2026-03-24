@@ -7,7 +7,7 @@ title: Prerequisites
 
 ## System Requirements
 
-- **Node.js** 18+
+- **Node.js** 20+
 - **pnpm** (recommended) or npm
 - **Git**
 
@@ -28,7 +28,7 @@ title: Prerequisites
 | `@fhenixprotocol/cofhe-contracts` | ^0.1.0 | FHE.sol, encrypted types, ACL |
 | `@openzeppelin/contracts` | ^5.0.0 | AccessControl, ERC20, ReentrancyGuard |
 | `hardhat` | 2.22.19 | Build & test framework |
-| `@cofhe/hardhat-plugin` | ^0.3.1 | Local FHE mock for testing |
+| `@cofhe/hardhat-plugin` | ^0.4.0 | Local FHE mock for testing |
 
 ### Frontend
 
