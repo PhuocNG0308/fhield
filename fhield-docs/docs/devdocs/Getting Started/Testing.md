@@ -74,7 +74,7 @@ const client = await hre.cofhe.createClientWithBatteries(signer);
 
 ```typescript
 // Check plaintext value of a ciphertext handle
-await hre.cofhe.expectPlaintext(ctHash).toEqual(expectedValue);
+await hre.cofhe.mocks.expectPlaintext(ctHash, expectedValue);
 ```
 
 ## BigInt Precision

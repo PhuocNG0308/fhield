@@ -8,7 +8,7 @@ title: Installation
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/fhield/fhield.git
+git clone https://github.com/PhuocNG0308/fhield.git
 cd fhield
 ```
 
