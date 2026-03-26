@@ -21,6 +21,9 @@ const config: HardhatUserConfig = {
   },
   defaultNetwork: "hardhat",
   networks: {
+    localhost: {
+      url: "http://127.0.0.1:8545",
+    },
     "arb-sepolia": {
       url:
         process.env.ARBITRUM_SEPOLIA_RPC_URL ||
