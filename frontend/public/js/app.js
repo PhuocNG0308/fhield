@@ -48,6 +48,12 @@ const app = {
       }
     });
 
+    fetch('/api/config').then(r => r.json()).then(cfg => {
+      const names = { 421614: 'Arbitrum Sepolia', 31337: 'Hardhat Local' };
+      const name = names[cfg.chainId] || `Chain ${cfg.chainId}`;
+      document.querySelectorAll('[data-network-name]').forEach(el => { el.textContent = name; });
+    }).catch(() => {});
+
     window.fhield = this;
   },
 };

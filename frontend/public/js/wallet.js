@@ -1,6 +1,6 @@
 import { ContractInteraction } from './contracts.js';
 
-const NETWORKS = {
+const NETWORK_DEFAULTS = {
   '0x66eee': {
     chainId: '0x66eee',
     chainName: 'Arbitrum Sepolia',
@@ -17,6 +17,8 @@ const NETWORKS = {
   },
 };
 
+const WALLET_STORAGE_KEY = 'fhield_wallet';
+
 let _targetNetwork = null;
 
 async function getTargetNetwork() {
@@ -25,9 +27,15 @@ async function getTargetNetwork() {
     const res = await fetch('/api/config');
     const config = await res.json();
     const hexChainId = '0x' + config.chainId.toString(16);
-    _targetNetwork = NETWORKS[hexChainId] || NETWORKS['0x66eee'];
+    _targetNetwork = NETWORK_DEFAULTS[hexChainId] || {
+      chainId: hexChainId,
+      chainName: `FHIELD Network (${config.chainId})`,
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: [config.rpcUrl || 'http://127.0.0.1:8545'],
+      blockExplorerUrls: [],
+    };
   } catch {
-    _targetNetwork = NETWORKS['0x66eee'];
+    _targetNetwork = NETWORK_DEFAULTS['0x66eee'];
   }
   return _targetNetwork;
 }
@@ -44,31 +52,80 @@ export class WalletManager {
   }
 
   async _tryReconnect() {
-    const raw = window.ethereum;
-    if (!raw) return;
+    const saved = this._loadWalletState();
+    let provider = null;
+
+    if (saved?.rdns) {
+      await new Promise(resolve => {
+        const handler = (event) => {
+          if (event.detail?.info?.rdns === saved.rdns) {
+            provider = event.detail.provider;
+            window.removeEventListener('eip6963:announceProvider', handler);
+            resolve();
+          }
+        };
+        window.addEventListener('eip6963:announceProvider', handler);
+        window.dispatchEvent(new Event('eip6963:requestProvider'));
+        setTimeout(() => {
+          window.removeEventListener('eip6963:announceProvider', handler);
+          resolve();
+        }, 800);
+      });
+    }
+
+    if (!provider) provider = window.ethereum;
+    if (!provider) return;
+
     try {
-      const accounts = await raw.request({ method: 'eth_accounts' });
+      const accounts = await provider.request({ method: 'eth_accounts' });
       if (accounts.length > 0) {
-        this.provider = raw;
+        this.provider = provider;
         this.account = accounts[0];
-        ContractInteraction.setProvider(raw);
+        ContractInteraction.setProvider(provider);
         this.updateUI();
         await this.loadBalances();
-
-        raw.on?.('accountsChanged', (accs) => {
-          this.account = accs[0] || null;
-          ContractInteraction.resetSigner();
-          this.updateUI();
-          if (this.account) this.loadBalances();
-          else this.disconnect();
-        });
-        raw.on?.('chainChanged', async () => {
-          ContractInteraction.resetSigner();
-          ContractInteraction.setProvider(this.provider);
-          this.loadBalances();
-        });
+        this._setupProviderListeners();
+      } else {
+        this._clearWalletState();
       }
-    } catch { /* no previously authorized accounts */ }
+    } catch {
+      this._clearWalletState();
+    }
+  }
+
+  _saveWalletState(rdns) {
+    try {
+      localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify({ rdns, ts: Date.now() }));
+    } catch { /* localStorage unavailable */ }
+  }
+
+  _loadWalletState() {
+    try {
+      const raw = localStorage.getItem(WALLET_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  }
+
+  _clearWalletState() {
+    try { localStorage.removeItem(WALLET_STORAGE_KEY); } catch {}
+  }
+
+  _setupProviderListeners() {
+    this.provider.on?.('accountsChanged', (accs) => {
+      this.account = accs[0] || null;
+      ContractInteraction.resetSigner();
+      this.updateUI();
+      if (this.account) this.loadBalances();
+      else this.disconnect();
+    });
+    this.provider.on?.('chainChanged', async () => {
+      ContractInteraction.resetSigner();
+      const ok = await this._ensureCorrectNetwork();
+      if (ok) {
+        ContractInteraction.setProvider(this.provider);
+        this.loadBalances();
+      }
+    });
   }
 
   _discoverWallets() {
@@ -184,26 +241,11 @@ export class WalletManager {
         return;
       }
 
+      this._saveWalletState(wallet.info.rdns || wallet.info.uuid);
       this.updateUI();
       this.toast.show(`Connected: ${this.shortAddress()}`, 'success');
       await this.loadBalances();
-
-      this.provider.on?.('accountsChanged', (accs) => {
-        this.account = accs[0] || null;
-        ContractInteraction.resetSigner();
-        this.updateUI();
-        if (this.account) this.loadBalances();
-        else this.disconnect();
-      });
-
-      this.provider.on?.('chainChanged', async () => {
-        ContractInteraction.resetSigner();
-        const ok = await this._ensureCorrectNetwork();
-        if (ok) {
-          ContractInteraction.setProvider(this.provider);
-          this.loadBalances();
-        }
-      });
+      this._setupProviderListeners();
 
     } catch (err) {
       this._closeConnectModal();
@@ -256,6 +298,7 @@ export class WalletManager {
     this.account = null;
     this.provider = null;
     this.balances = {};
+    this._clearWalletState();
     ContractInteraction.setProvider(null);
     this.updateUI();
     this.toast.show('Wallet disconnected', 'info');

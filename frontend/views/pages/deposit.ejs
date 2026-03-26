@@ -12,7 +12,7 @@
       <div class="glass-panel p-8 rounded-xl border border-outline-variant/10" data-requires-wallet>
         <div class="flex justify-between items-center mb-6">
           <label class="font-label text-sm uppercase tracking-widest text-on-surface-variant font-semibold">Select Asset</label>
-          <span class="text-xs font-medium text-on-surface-variant">Wallet Balance: <span class="text-on-surface">1,500.00 <%= selected.name %></span></span>
+          <span class="text-xs font-medium text-on-surface-variant">Wallet Balance: <span class="text-on-surface" data-wallet-balance="<%= selected.name %>">—</span> <%= selected.name %></span>
         </div>
 
         <div class="bg-surface-container-highest p-4 rounded-xl flex items-center justify-between cursor-pointer border border-transparent hover:border-primary/20 transition-all mb-8">
@@ -40,7 +40,7 @@
           <div id="deposit-usd" class="text-right text-sm text-on-surface-variant mr-4 mt-2"></div>
         </div>
 
-        <button data-action-btn="Supply" class="w-full py-5 btn-primary text-lg rounded-xl cyan-glow mb-8">
+        <button data-action-btn="Supply" data-action-asset="<%= selected.name %>" class="w-full py-5 btn-primary text-lg rounded-xl cyan-glow mb-8">
           Encrypt &amp; Supply
         </button>
 

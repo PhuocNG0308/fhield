@@ -91,16 +91,9 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
 
         euint64 encAmount = FHE.asEuint64(amount);
-        euint64 current = _collateralBalances[msg.sender][asset];
-
-        if (euint64.unwrap(current) == 0) {
-            _collateralBalances[msg.sender][asset] = encAmount;
-            userLiquidityIndex[msg.sender][asset] = reserve.liquidityIndex;
-        } else {
-            euint64 normalized = _normalizeCollateral(current, msg.sender, asset);
-            _collateralBalances[msg.sender][asset] = FHE.add(normalized, encAmount);
-            userLiquidityIndex[msg.sender][asset] = reserve.liquidityIndex;
-        }
+        euint64 normalized = _safeCollateral(msg.sender, asset);
+        _collateralBalances[msg.sender][asset] = FHE.add(normalized, encAmount);
+        userLiquidityIndex[msg.sender][asset] = reserve.liquidityIndex;
 
         FHE.allowThis(_collateralBalances[msg.sender][asset]);
         FHE.allow(_collateralBalances[msg.sender][asset], msg.sender);
@@ -143,15 +136,9 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         ebool healthy = FHE.gte(totalCollateralValue, newDebtValue);
         euint64 actualAmount = FHE.select(healthy, encAmount, FHELendingMath.encryptedZero());
 
-        euint64 currentDebt = _debtBalances[msg.sender][asset];
-        if (euint64.unwrap(currentDebt) == 0) {
-            _debtBalances[msg.sender][asset] = actualAmount;
-            userBorrowIndex[msg.sender][asset] = reserve.variableBorrowIndex;
-        } else {
-            euint64 normalizedDebt = _normalizeDebt(currentDebt, msg.sender, asset);
-            _debtBalances[msg.sender][asset] = FHE.add(normalizedDebt, actualAmount);
-            userBorrowIndex[msg.sender][asset] = reserve.variableBorrowIndex;
-        }
+        euint64 normalizedDebt = _safeDebt(msg.sender, asset);
+        _debtBalances[msg.sender][asset] = FHE.add(normalizedDebt, actualAmount);
+        userBorrowIndex[msg.sender][asset] = reserve.variableBorrowIndex;
 
         FHE.allowThis(_debtBalances[msg.sender][asset]);
         FHE.allow(_debtBalances[msg.sender][asset], msg.sender);
@@ -197,17 +184,13 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
 
         euint64 encAmount = FHE.asEuint64(amount);
-        euint64 currentDebt = _debtBalances[msg.sender][asset];
+        euint64 normalizedDebt = _safeDebt(msg.sender, asset);
+        euint64 actualRepay = FHELendingMath.encryptedMin(encAmount, normalizedDebt);
+        _debtBalances[msg.sender][asset] = FHE.sub(normalizedDebt, actualRepay);
+        userBorrowIndex[msg.sender][asset] = reserve.variableBorrowIndex;
 
-        if (euint64.unwrap(currentDebt) != 0) {
-            euint64 normalizedDebt = _normalizeDebt(currentDebt, msg.sender, asset);
-            euint64 actualRepay = FHELendingMath.encryptedMin(encAmount, normalizedDebt);
-            _debtBalances[msg.sender][asset] = FHE.sub(normalizedDebt, actualRepay);
-            userBorrowIndex[msg.sender][asset] = reserve.variableBorrowIndex;
-
-            FHE.allowThis(_debtBalances[msg.sender][asset]);
-            FHE.allow(_debtBalances[msg.sender][asset], msg.sender);
-        }
+        FHE.allowThis(_debtBalances[msg.sender][asset]);
+        FHE.allow(_debtBalances[msg.sender][asset], msg.sender);
 
         totalBorrows[asset] = totalBorrows[asset] > amount
             ? totalBorrows[asset] - amount
@@ -352,17 +335,13 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
 
     function _repayDebtOnLiquidation(address borrower, address debtAsset, uint64 debtToCover) internal {
         euint64 encRepay = FHE.asEuint64(debtToCover);
-        euint64 borrowerDebt = _debtBalances[borrower][debtAsset];
+        euint64 normalizedDebt = _safeDebt(borrower, debtAsset);
+        euint64 actualRepay = FHELendingMath.encryptedMin(encRepay, normalizedDebt);
+        _debtBalances[borrower][debtAsset] = FHE.sub(normalizedDebt, actualRepay);
+        userBorrowIndex[borrower][debtAsset] = _reserves[debtAsset].variableBorrowIndex;
 
-        if (euint64.unwrap(borrowerDebt) != 0) {
-            euint64 normalizedDebt = _normalizeDebt(borrowerDebt, borrower, debtAsset);
-            euint64 actualRepay = FHELendingMath.encryptedMin(encRepay, normalizedDebt);
-            _debtBalances[borrower][debtAsset] = FHE.sub(normalizedDebt, actualRepay);
-            userBorrowIndex[borrower][debtAsset] = _reserves[debtAsset].variableBorrowIndex;
-
-            FHE.allowThis(_debtBalances[borrower][debtAsset]);
-            FHE.allow(_debtBalances[borrower][debtAsset], borrower);
-        }
+        FHE.allowThis(_debtBalances[borrower][debtAsset]);
+        FHE.allow(_debtBalances[borrower][debtAsset], borrower);
     }
 
     function _calculateLiquidationAmounts(
@@ -383,17 +362,13 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
 
     function _seizeCollateral(address borrower, address collateralAsset, uint256 amount) internal {
         euint64 encSeize = FHE.asEuint64(uint64(amount));
-        euint64 borrowerCollateral = _collateralBalances[borrower][collateralAsset];
+        euint64 normalized = _safeCollateral(borrower, collateralAsset);
+        euint64 actualSeize = FHELendingMath.encryptedMin(encSeize, normalized);
+        _collateralBalances[borrower][collateralAsset] = FHE.sub(normalized, actualSeize);
+        userLiquidityIndex[borrower][collateralAsset] = _reserves[collateralAsset].liquidityIndex;
 
-        if (euint64.unwrap(borrowerCollateral) != 0) {
-            euint64 normalized = _normalizeCollateral(borrowerCollateral, borrower, collateralAsset);
-            euint64 actualSeize = FHELendingMath.encryptedMin(encSeize, normalized);
-            _collateralBalances[borrower][collateralAsset] = FHE.sub(normalized, actualSeize);
-            userLiquidityIndex[borrower][collateralAsset] = _reserves[collateralAsset].liquidityIndex;
-
-            FHE.allowThis(_collateralBalances[borrower][collateralAsset]);
-            FHE.allow(_collateralBalances[borrower][collateralAsset], borrower);
-        }
+        FHE.allowThis(_collateralBalances[borrower][collateralAsset]);
+        FHE.allow(_collateralBalances[borrower][collateralAsset], borrower);
     }
 
     function _updateTotalsAfterLiquidation(
@@ -541,6 +516,18 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
 
     // ─── INTERNAL: Collateral/Debt Value ─────────────────────────────────
 
+    function _safeCollateral(address user, address asset) internal returns (euint64) {
+        euint64 raw = _collateralBalances[user][asset];
+        if (euint64.unwrap(raw) == 0) return FHELendingMath.encryptedZero();
+        return _normalizeCollateral(raw, user, asset);
+    }
+
+    function _safeDebt(address user, address asset) internal returns (euint64) {
+        euint64 raw = _debtBalances[user][asset];
+        if (euint64.unwrap(raw) == 0) return FHELendingMath.encryptedZero();
+        return _normalizeDebt(raw, user, asset);
+    }
+
     function _computeEncryptedCollateralValue(
         address user,
         uint256 ltvBoost
@@ -551,22 +538,19 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < count; i++) {
             address asset = assetConfig.assetList(i);
             AssetConfig.AssetInfo memory info = assetConfig.getAsset(asset);
-            euint64 balance = _collateralBalances[user][asset];
 
-            if (euint64.unwrap(balance) != 0) {
-                euint64 normalized = _normalizeCollateral(balance, user, asset);
-                uint256 price = oracle.getPrice(asset);
+            euint64 balance = _safeCollateral(user, asset);
+            uint256 price = oracle.getPrice(asset);
 
-                uint256 effectiveLTV = info.ltv + ltvBoost;
-                if (effectiveLTV > info.liquidationThreshold) {
-                    effectiveLTV = info.liquidationThreshold;
-                }
-
-                uint256 adjustedPrice = (price * effectiveLTV) / assetConfig.PERCENTAGE_PRECISION();
-                euint64 value = FHELendingMath.mulByPlaintext(normalized, adjustedPrice);
-                totalValue = FHE.add(totalValue, value);
-                FHE.allowThis(totalValue);
+            uint256 effectiveLTV = info.ltv + ltvBoost;
+            if (effectiveLTV > info.liquidationThreshold) {
+                effectiveLTV = info.liquidationThreshold;
             }
+
+            uint256 adjustedPrice = (price * effectiveLTV) / assetConfig.PERCENTAGE_PRECISION();
+            euint64 value = FHELendingMath.mulByPlaintext(balance, adjustedPrice);
+            totalValue = FHE.add(totalValue, value);
+            FHE.allowThis(totalValue);
         }
 
         return totalValue;
@@ -583,19 +567,17 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < count; i++) {
             address asset = assetConfig.assetList(i);
             AssetConfig.AssetInfo memory info = assetConfig.getAsset(asset);
-            euint64 balance = _collateralBalances[user][asset];
 
-            if (euint64.unwrap(balance) != 0) {
-                euint64 effectiveBalance = balance;
-                if (asset == withdrawAsset) {
-                    effectiveBalance = FHE.sub(balance, withdrawAmount);
-                }
-                uint256 price = oracle.getPrice(asset);
-                uint256 adjustedPrice = (price * info.ltv) / assetConfig.PERCENTAGE_PRECISION();
-                euint64 value = FHELendingMath.mulByPlaintext(effectiveBalance, adjustedPrice);
-                totalValue = FHE.add(totalValue, value);
-                FHE.allowThis(totalValue);
+            euint64 balance = _safeCollateral(user, asset);
+            if (asset == withdrawAsset) {
+                balance = FHE.sub(balance, withdrawAmount);
             }
+
+            uint256 price = oracle.getPrice(asset);
+            uint256 adjustedPrice = (price * info.ltv) / assetConfig.PERCENTAGE_PRECISION();
+            euint64 value = FHELendingMath.mulByPlaintext(balance, adjustedPrice);
+            totalValue = FHE.add(totalValue, value);
+            FHE.allowThis(totalValue);
         }
 
         return totalValue;
@@ -608,15 +590,13 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < count; i++) {
             address asset = assetConfig.assetList(i);
             AssetConfig.AssetInfo memory info = assetConfig.getAsset(asset);
-            euint64 balance = _collateralBalances[user][asset];
 
-            if (euint64.unwrap(balance) != 0) {
-                uint256 price = oracle.getPrice(asset);
-                uint256 adjustedPrice = (price * info.liquidationThreshold) / assetConfig.PERCENTAGE_PRECISION();
-                euint64 value = FHELendingMath.mulByPlaintext(balance, adjustedPrice);
-                totalValue = FHE.add(totalValue, value);
-                FHE.allowThis(totalValue);
-            }
+            euint64 balance = _safeCollateral(user, asset);
+            uint256 price = oracle.getPrice(asset);
+            uint256 adjustedPrice = (price * info.liquidationThreshold) / assetConfig.PERCENTAGE_PRECISION();
+            euint64 value = FHELendingMath.mulByPlaintext(balance, adjustedPrice);
+            totalValue = FHE.add(totalValue, value);
+            FHE.allowThis(totalValue);
         }
 
         return totalValue;
@@ -628,15 +608,12 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
 
         for (uint256 i = 0; i < count; i++) {
             address asset = assetConfig.assetList(i);
-            euint64 debt = _debtBalances[user][asset];
 
-            if (euint64.unwrap(debt) != 0) {
-                euint64 normalizedDebt = _normalizeDebt(debt, user, asset);
-                uint256 price = oracle.getPrice(asset);
-                euint64 value = FHELendingMath.mulByPlaintext(normalizedDebt, price);
-                totalValue = FHE.add(totalValue, value);
-                FHE.allowThis(totalValue);
-            }
+            euint64 debt = _safeDebt(user, asset);
+            uint256 price = oracle.getPrice(asset);
+            euint64 value = FHELendingMath.mulByPlaintext(debt, price);
+            totalValue = FHE.add(totalValue, value);
+            FHE.allowThis(totalValue);
         }
 
         return totalValue;

@@ -197,7 +197,8 @@
     els.assetIconWrap.innerHTML = '<img alt="' + asset.name + '" class="w-full h-full object-cover" src="' + asset.img + '" />';
     els.assetNameDisplay.textContent = isShield ? asset.name : asset.shieldedName;
     els.outputTokenName.textContent = isShield ? asset.shieldedName : asset.name;
-    els.fromBalance.textContent = (isShield ? asset.publicBalance : asset.shieldedBalance) + ' ' + (isShield ? asset.name : asset.shieldedName);
+    const bal = isShield ? asset.publicBalance : asset.shieldedBalance;
+    els.fromBalance.textContent = (bal != null ? bal : '—') + ' ' + (isShield ? asset.name : asset.shieldedName);
 
     closeAssetModal();
   }
@@ -214,7 +215,8 @@
     }
 
     els.assetList.innerHTML = filtered.map(a => {
-      const bal = mode === 'shield' ? a.publicBalance + ' ' + a.name : a.shieldedBalance + ' ' + a.shieldedName;
+      const rawBal = mode === 'shield' ? a.publicBalance : a.shieldedBalance;
+      const bal = (rawBal != null ? rawBal : '—') + ' ' + (mode === 'shield' ? a.name : a.shieldedName);
       return '<button class="asset-option w-full flex items-center justify-between p-3 rounded-xl hover:bg-surface-container-highest transition-colors text-left" data-asset="' + a.name + '">' +
         '<div class="flex items-center gap-3">' +
           '<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden"><img alt="' + a.name + '" class="w-7 h-7" src="' + a.img + '" /></div>' +
@@ -265,8 +267,10 @@
   els.maxBtn.addEventListener('click', () => {
     if (!selectedAsset) return;
     const bal = mode === 'shield' ? selectedAsset.publicBalance : selectedAsset.shieldedBalance;
-    els.swapAmount.value = bal;
-    els.swapAmount.dispatchEvent(new Event('input'));
+    if (bal != null) {
+      els.swapAmount.value = bal;
+      els.swapAmount.dispatchEvent(new Event('input'));
+    }
   });
 
   els.swapSubmit.addEventListener('click', async function() {
@@ -317,6 +321,20 @@
     }
   }
 
-  loadAssets();
+  function syncWalletBalances(balances) {
+    if (!balances || !assets.length) return;
+    assets.forEach(a => {
+      const b = balances[a.name];
+      if (b) a.publicBalance = parseFloat(b.formatted);
+    });
+    if (selectedAsset) selectAsset(selectedAsset);
+  }
+
+  document.addEventListener('wallet:balances', (e) => syncWalletBalances(e.detail));
+
+  loadAssets().then(() => {
+    const wb = window.fhield?.wallet?.balances;
+    if (wb && Object.keys(wb).length) syncWalletBalances(wb);
+  });
 })();
 </script>

@@ -56,7 +56,7 @@
         <p class="text-xs text-on-surface-variant ml-1">≈ <span data-usd-display="1.00">$0.00</span></p>
       </div>
 
-      <button data-action-btn="Repay" class="btn-primary w-full py-4 rounded-xl text-base font-bold">
+      <button data-action-btn="Repay" data-action-asset="<%= position.repayAssets.find(a => a.selected)?.asset || 'USDC' %>" class="btn-primary w-full py-4 rounded-xl text-base font-bold">
         <span class="material-symbols-outlined text-lg mr-2 align-middle">credit_score</span>
         Repay Debt
       </button>

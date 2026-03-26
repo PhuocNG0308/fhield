@@ -26,6 +26,13 @@ export class AssetSelector {
     const asset = card.dataset.asset;
     if (this.hiddenInput) this.hiddenInput.value = asset;
 
+    const section = this.container.closest('section') || this.container.closest('form');
+    if (section) {
+      section.querySelectorAll('[data-action-asset]').forEach(btn => {
+        btn.dataset.actionAsset = asset;
+      });
+    }
+
     this.container.dispatchEvent(new CustomEvent('asset-change', {
       detail: { asset },
       bubbles: true,

@@ -34,7 +34,7 @@ export class FormHandler {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const action = btn.dataset.actionBtn;
-        const asset = btn.dataset.actionAsset || btn.closest('[data-asset]')?.dataset.asset || '';
+        const asset = btn.dataset.actionAsset || btn.closest('[data-asset]')?.dataset.asset || form?.querySelector('input[name="asset"]')?.value || '';
         const form = btn.closest('form') || btn.closest('section');
         const input = form?.querySelector('input[type="text"], input[type="number"]');
         const amount = input?.value;

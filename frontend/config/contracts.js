@@ -11,11 +11,18 @@ const POOL_ABI = [
   'function getEncryptedDebt(address, address) view returns (uint128)',
   'function assetConfig() view returns (address)',
   'function oracle() view returns (address)',
-  'function deposit(address asset, uint256 amount) external',
-  'function borrow(address asset, uint256 amount) external',
-  'function repay(address asset, uint256 amount) external',
-  'function withdraw(address asset, uint256 amount) external',
+  'function deposit(address asset, uint64 amount) external',
+  'function borrow(address asset, tuple(uint256 ctHash, uint8 securityZone, uint8 utype, bytes signature) amount) external',
+  'function repay(address asset, uint64 amount) external',
+  'function withdraw(address asset, tuple(uint256 ctHash, uint8 securityZone, uint8 utype, bytes signature) amount) external',
   'function claimBorrow(address asset) external',
+  'function claimWithdraw(address asset) external',
+  'event Deposit(address indexed user, address indexed asset, uint256 amount)',
+  'event Borrow(address indexed user, address indexed asset)',
+  'event BorrowClaimed(address indexed user, address indexed asset, uint64 amount)',
+  'event Repay(address indexed user, address indexed asset, uint256 amount)',
+  'event Withdraw(address indexed user, address indexed asset)',
+  'event WithdrawClaimed(address indexed user, address indexed asset, uint64 amount)',
 ];
 
 const ASSET_CONFIG_ABI = [
@@ -43,6 +50,14 @@ const FHERC20_ABI = [
   'function totalWrapped() view returns (uint256)',
   'function indicatedBalanceOf(address) view returns (uint16)',
   'function confidentialBalanceOf(address) view returns (uint128)',
+  'function wrap(uint64 amount) external',
+  'function unwrap(tuple(uint256 ctHash, uint8 securityZone, uint8 utype, bytes signature) amount) external',
+  'function claimUnwrapped(bytes32 claimId) external',
+  'function confidentialTransfer(address to, tuple(uint256 ctHash, uint8 securityZone, uint8 utype, bytes signature) amount) external',
+  'function getUserClaims(address user) view returns (bytes32[])',
+  'event UnwrapRequested(address indexed account, bytes32 claimId)',
+  'event UnwrapClaimed(address indexed account, bytes32 claimId, uint64 amount)',
+  'event Wrapped(address indexed account, uint64 amount)',
 ];
 
 const addresses = {

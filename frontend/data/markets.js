@@ -32,6 +32,9 @@ async function fetchMarketDataFromChain() {
       result.ETH = onChain.WETH;
       result.WBTC = { ...onChain.WETH };
     }
+
+    _cachedMarketData = result;
+    _cacheTimestamp = Date.now();
     return result;
   } catch {
     return null;

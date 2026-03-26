@@ -4,6 +4,12 @@ let _signer = null;
 let _contracts = {};
 let _rawProvider = null;
 
+const UI_TO_CONTRACT_SYMBOL = { ETH: 'WETH', USDT: 'USDC', WBTC: 'WETH' };
+
+function resolveSymbol(uiSymbol) {
+  return UI_TO_CONTRACT_SYMBOL[uiSymbol] || uiSymbol;
+}
+
 async function loadConfig() {
   if (_config) return _config;
   const res = await fetch('/api/config');
@@ -67,6 +73,13 @@ async function getERC20(address) {
   return new ethers.Contract(address, config.abis.erc20, signer);
 }
 
+async function fetchNonce() {
+  const signer = await getSigner();
+  if (!signer) return undefined;
+  const address = await signer.getAddress();
+  return getProvider().getTransactionCount(address, 'pending');
+}
+
 async function getWalletBalances(account) {
   const config = await loadConfig();
   if (!config.isConfigured) return {};
@@ -75,6 +88,7 @@ async function getWalletBalances(account) {
   if (!signer) return {};
 
   const balances = {};
+
   for (const [symbol, addr] of Object.entries(config.addresses.assets)) {
     if (!addr) continue;
     try {
@@ -92,12 +106,19 @@ async function getWalletBalances(account) {
       balances[symbol] = { raw: '0', formatted: '0.0', decimals: 18 };
     }
   }
+
+  for (const [uiKey, contractKey] of Object.entries(UI_TO_CONTRACT_SYMBOL)) {
+    if (balances[contractKey] && !balances[uiKey]) {
+      balances[uiKey] = balances[contractKey];
+    }
+  }
+
   return balances;
 }
 
 async function deposit(assetSymbol, amount) {
   const config = await loadConfig();
-  const assetAddr = config.addresses.assets[assetSymbol];
+  const assetAddr = config.addresses.assets[resolveSymbol(assetSymbol)];
   if (!assetAddr) throw new Error(`Unknown asset: ${assetSymbol}`);
 
   const signer = await getSigner();
@@ -107,16 +128,18 @@ async function deposit(assetSymbol, amount) {
   const decimals = await token.decimals();
   const rawAmount = ethers.parseUnits(amount, decimals);
 
-  const approveTx = await token.approve(config.addresses.pool, rawAmount);
+  let nonce = await fetchNonce();
+  const approveTx = await token.approve(config.addresses.pool, rawAmount, { nonce });
   await approveTx.wait();
 
-  const depositTx = await pool.deposit(assetAddr, rawAmount);
+  nonce = await fetchNonce();
+  const depositTx = await pool.deposit(assetAddr, rawAmount, { nonce });
   return depositTx.wait();
 }
 
 async function repay(assetSymbol, amount) {
   const config = await loadConfig();
-  const assetAddr = config.addresses.assets[assetSymbol];
+  const assetAddr = config.addresses.assets[resolveSymbol(assetSymbol)];
   if (!assetAddr) throw new Error(`Unknown asset: ${assetSymbol}`);
 
   const signer = await getSigner();
@@ -126,17 +149,20 @@ async function repay(assetSymbol, amount) {
   const decimals = await token.decimals();
   const rawAmount = ethers.parseUnits(amount, decimals);
 
-  const approveTx = await token.approve(config.addresses.pool, rawAmount);
+  let nonce = await fetchNonce();
+  const approveTx = await token.approve(config.addresses.pool, rawAmount, { nonce });
   await approveTx.wait();
 
-  const repayTx = await pool.repay(assetAddr, rawAmount);
+  nonce = await fetchNonce();
+  const repayTx = await pool.repay(assetAddr, rawAmount, { nonce });
   return repayTx.wait();
 }
 
 async function wrap(assetSymbol, amount) {
   const config = await loadConfig();
-  const assetAddr = config.addresses.assets[assetSymbol];
-  const wrapperAddr = config.addresses.wrappers[assetSymbol];
+  const resolved = resolveSymbol(assetSymbol);
+  const assetAddr = config.addresses.assets[resolved];
+  const wrapperAddr = config.addresses.wrappers[resolved];
   if (!assetAddr || !wrapperAddr) throw new Error(`Unknown asset: ${assetSymbol}`);
 
   const signer = await getSigner();
@@ -145,13 +171,13 @@ async function wrap(assetSymbol, amount) {
   const decimals = await token.decimals();
   const rawAmount = ethers.parseUnits(amount, decimals);
 
-  const approveTx = await token.approve(wrapperAddr, rawAmount);
+  let nonce = await fetchNonce();
+  const approveTx = await token.approve(wrapperAddr, rawAmount, { nonce });
   await approveTx.wait();
 
-  const wrapper = new ethers.Contract(wrapperAddr, [
-    'function wrap(uint64 amount) external',
-  ], signer);
-  const wrapTx = await wrapper.wrap(rawAmount);
+  const wrapper = new ethers.Contract(wrapperAddr, config.abis.fherc20, signer);
+  nonce = await fetchNonce();
+  const wrapTx = await wrapper.wrap(rawAmount, { nonce });
   return wrapTx.wait();
 }
 
@@ -160,52 +186,117 @@ async function getMarketData() {
   return res.json();
 }
 
+const MOCK_TESTBED_ADDRESS = '0x0000000000000000000000000000000000000300';
+const MOCK_TESTBED_ABI = [
+  'function createInEuint64(uint64 value, address sender) external returns (tuple(uint256 ctHash, uint8 securityZone, uint8 utype, bytes signature))',
+];
+
+async function createEncryptedUint64(value, sender) {
+  const signer = await getSigner();
+  if (!signer) throw new Error('No signer available');
+  const testbed = new ethers.Contract(MOCK_TESTBED_ADDRESS, MOCK_TESTBED_ABI, signer);
+  return testbed.createInEuint64.staticCall(value, sender);
+}
+
 async function borrow(assetSymbol, amount) {
   const config = await loadConfig();
-  const assetAddr = config.addresses.assets[assetSymbol];
+  const assetAddr = config.addresses.assets[resolveSymbol(assetSymbol)];
   if (!assetAddr) throw new Error(`Unknown asset: ${assetSymbol}`);
 
   const pool = await getContract('pool');
   const token = await getERC20(assetAddr);
+  const signer = await getSigner();
+  const sender = await signer.getAddress();
 
   const decimals = await token.decimals();
   const rawAmount = ethers.parseUnits(amount, decimals);
 
-  const borrowTx = await pool.borrow(assetAddr, rawAmount);
-  return borrowTx.wait();
+  const encryptedAmount = await createEncryptedUint64(rawAmount, sender);
+  let nonce = await fetchNonce();
+  const borrowTx = await pool.borrow(assetAddr, encryptedAmount, { nonce });
+  await borrowTx.wait();
+
+  nonce = await fetchNonce();
+  const claimTx = await pool.claimBorrow(assetAddr, { nonce });
+  return claimTx.wait();
+}
+
+async function claimBorrow(assetSymbol) {
+  const config = await loadConfig();
+  const assetAddr = config.addresses.assets[resolveSymbol(assetSymbol)];
+  if (!assetAddr) throw new Error(`Unknown asset: ${assetSymbol}`);
+
+  const pool = await getContract('pool');
+  const nonce = await fetchNonce();
+  const tx = await pool.claimBorrow(assetAddr, { nonce });
+  return tx.wait();
 }
 
 async function withdraw(assetSymbol, amount) {
   const config = await loadConfig();
-  const assetAddr = config.addresses.assets[assetSymbol];
+  const assetAddr = config.addresses.assets[resolveSymbol(assetSymbol)];
   if (!assetAddr) throw new Error(`Unknown asset: ${assetSymbol}`);
 
   const pool = await getContract('pool');
   const token = await getERC20(assetAddr);
+  const signer = await getSigner();
+  const sender = await signer.getAddress();
 
   const decimals = await token.decimals();
   const rawAmount = ethers.parseUnits(amount, decimals);
 
-  const withdrawTx = await pool.withdraw(assetAddr, rawAmount);
-  return withdrawTx.wait();
+  const encryptedAmount = await createEncryptedUint64(rawAmount, sender);
+  let nonce = await fetchNonce();
+  const withdrawTx = await pool.withdraw(assetAddr, encryptedAmount, { nonce });
+  await withdrawTx.wait();
+
+  nonce = await fetchNonce();
+  const claimTx = await pool.claimWithdraw(assetAddr, { nonce });
+  return claimTx.wait();
+}
+
+async function claimWithdraw(assetSymbol) {
+  const config = await loadConfig();
+  const assetAddr = config.addresses.assets[resolveSymbol(assetSymbol)];
+  if (!assetAddr) throw new Error(`Unknown asset: ${assetSymbol}`);
+
+  const pool = await getContract('pool');
+  const nonce = await fetchNonce();
+  const tx = await pool.claimWithdraw(assetAddr, { nonce });
+  return tx.wait();
 }
 
 async function unwrap(assetSymbol, amount) {
   const config = await loadConfig();
-  const wrapperAddr = config.addresses.wrappers[assetSymbol];
+  const resolved = resolveSymbol(assetSymbol);
+  const wrapperAddr = config.addresses.wrappers[resolved];
   if (!wrapperAddr) throw new Error(`Unknown wrapper: ${assetSymbol}`);
 
   const signer = await getSigner();
-  const wrapper = new ethers.Contract(wrapperAddr, [
-    'function unwrap(uint64 amount) external',
-  ], signer);
+  const sender = await signer.getAddress();
+  const wrapper = new ethers.Contract(wrapperAddr, config.abis.fherc20, signer);
 
-  const token = await getERC20(config.addresses.assets[assetSymbol]);
+  const token = await getERC20(config.addresses.assets[resolved]);
   const decimals = await token.decimals();
   const rawAmount = ethers.parseUnits(amount, decimals);
 
-  const unwrapTx = await wrapper.unwrap(rawAmount);
-  return unwrapTx.wait();
+  const encryptedAmount = await createEncryptedUint64(rawAmount, sender);
+  let nonce = await fetchNonce();
+  const unwrapTx = await wrapper.unwrap(encryptedAmount, { nonce });
+  const receipt = await unwrapTx.wait();
+
+  const unwrapEvent = receipt.logs
+    .map(log => { try { return wrapper.interface.parseLog(log); } catch { return null; } })
+    .find(e => e?.name === 'UnwrapRequested');
+
+  if (unwrapEvent) {
+    const claimId = unwrapEvent.args[1];
+    nonce = await fetchNonce();
+    const claimTx = await wrapper.claimUnwrapped(claimId, { nonce });
+    return claimTx.wait();
+  }
+
+  return receipt;
 }
 
 export const ContractInteraction = {
@@ -219,8 +310,10 @@ export const ContractInteraction = {
   getWalletBalances,
   deposit,
   borrow,
+  claimBorrow,
   repay,
   withdraw,
+  claimWithdraw,
   wrap,
   unwrap,
   getMarketData,
