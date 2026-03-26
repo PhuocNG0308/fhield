@@ -35,6 +35,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Local history (may contain secrets)
+.history/
+
 # Logs
 *.log
 npm-debug.log*
