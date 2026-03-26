@@ -17,12 +17,6 @@ const POOL_ABI = [
   'function withdraw(address asset, tuple(uint256 ctHash, uint8 securityZone, uint8 utype, bytes signature) amount) external',
   'function claimBorrow(address asset) external',
   'function claimWithdraw(address asset) external',
-  'event Deposit(address indexed user, address indexed asset, uint256 amount)',
-  'event Borrow(address indexed user, address indexed asset)',
-  'event BorrowClaimed(address indexed user, address indexed asset, uint64 amount)',
-  'event Repay(address indexed user, address indexed asset, uint256 amount)',
-  'event Withdraw(address indexed user, address indexed asset)',
-  'event WithdrawClaimed(address indexed user, address indexed asset, uint64 amount)',
 ];
 
 const ASSET_CONFIG_ABI = [

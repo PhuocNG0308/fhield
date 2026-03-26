@@ -516,18 +516,6 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
 
     // ─── INTERNAL: Collateral/Debt Value ─────────────────────────────────
 
-    function _safeCollateral(address user, address asset) internal returns (euint64) {
-        euint64 raw = _collateralBalances[user][asset];
-        if (euint64.unwrap(raw) == 0) return FHELendingMath.encryptedZero();
-        return _normalizeCollateral(raw, user, asset);
-    }
-
-    function _safeDebt(address user, address asset) internal returns (euint64) {
-        euint64 raw = _debtBalances[user][asset];
-        if (euint64.unwrap(raw) == 0) return FHELendingMath.encryptedZero();
-        return _normalizeDebt(raw, user, asset);
-    }
-
     function _computeEncryptedCollateralValue(
         address user,
         uint256 ltvBoost
@@ -538,19 +526,22 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < count; i++) {
             address asset = assetConfig.assetList(i);
             AssetConfig.AssetInfo memory info = assetConfig.getAsset(asset);
+            euint64 balance = _collateralBalances[user][asset];
 
-            euint64 balance = _safeCollateral(user, asset);
-            uint256 price = oracle.getPrice(asset);
+            if (euint64.unwrap(balance) != 0) {
+                euint64 normalized = _normalizeCollateral(balance, user, asset);
+                uint256 price = oracle.getPrice(asset);
 
-            uint256 effectiveLTV = info.ltv + ltvBoost;
-            if (effectiveLTV > info.liquidationThreshold) {
-                effectiveLTV = info.liquidationThreshold;
+                uint256 effectiveLTV = info.ltv + ltvBoost;
+                if (effectiveLTV > info.liquidationThreshold) {
+                    effectiveLTV = info.liquidationThreshold;
+                }
+
+                uint256 adjustedPrice = (price * effectiveLTV) / assetConfig.PERCENTAGE_PRECISION();
+                euint64 value = FHELendingMath.mulByPlaintext(normalized, adjustedPrice);
+                totalValue = FHE.add(totalValue, value);
+                FHE.allowThis(totalValue);
             }
-
-            uint256 adjustedPrice = (price * effectiveLTV) / assetConfig.PERCENTAGE_PRECISION();
-            euint64 value = FHELendingMath.mulByPlaintext(balance, adjustedPrice);
-            totalValue = FHE.add(totalValue, value);
-            FHE.allowThis(totalValue);
         }
 
         return totalValue;
@@ -567,17 +558,19 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < count; i++) {
             address asset = assetConfig.assetList(i);
             AssetConfig.AssetInfo memory info = assetConfig.getAsset(asset);
+            euint64 balance = _collateralBalances[user][asset];
 
-            euint64 balance = _safeCollateral(user, asset);
-            if (asset == withdrawAsset) {
-                balance = FHE.sub(balance, withdrawAmount);
+            if (euint64.unwrap(balance) != 0) {
+                euint64 effectiveBalance = balance;
+                if (asset == withdrawAsset) {
+                    effectiveBalance = FHE.sub(balance, withdrawAmount);
+                }
+                uint256 price = oracle.getPrice(asset);
+                uint256 adjustedPrice = (price * info.ltv) / assetConfig.PERCENTAGE_PRECISION();
+                euint64 value = FHELendingMath.mulByPlaintext(effectiveBalance, adjustedPrice);
+                totalValue = FHE.add(totalValue, value);
+                FHE.allowThis(totalValue);
             }
-
-            uint256 price = oracle.getPrice(asset);
-            uint256 adjustedPrice = (price * info.ltv) / assetConfig.PERCENTAGE_PRECISION();
-            euint64 value = FHELendingMath.mulByPlaintext(balance, adjustedPrice);
-            totalValue = FHE.add(totalValue, value);
-            FHE.allowThis(totalValue);
         }
 
         return totalValue;
@@ -590,13 +583,15 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < count; i++) {
             address asset = assetConfig.assetList(i);
             AssetConfig.AssetInfo memory info = assetConfig.getAsset(asset);
+            euint64 balance = _collateralBalances[user][asset];
 
-            euint64 balance = _safeCollateral(user, asset);
-            uint256 price = oracle.getPrice(asset);
-            uint256 adjustedPrice = (price * info.liquidationThreshold) / assetConfig.PERCENTAGE_PRECISION();
-            euint64 value = FHELendingMath.mulByPlaintext(balance, adjustedPrice);
-            totalValue = FHE.add(totalValue, value);
-            FHE.allowThis(totalValue);
+            if (euint64.unwrap(balance) != 0) {
+                uint256 price = oracle.getPrice(asset);
+                uint256 adjustedPrice = (price * info.liquidationThreshold) / assetConfig.PERCENTAGE_PRECISION();
+                euint64 value = FHELendingMath.mulByPlaintext(balance, adjustedPrice);
+                totalValue = FHE.add(totalValue, value);
+                FHE.allowThis(totalValue);
+            }
         }
 
         return totalValue;
@@ -608,12 +603,15 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
 
         for (uint256 i = 0; i < count; i++) {
             address asset = assetConfig.assetList(i);
+            euint64 debt = _debtBalances[user][asset];
 
-            euint64 debt = _safeDebt(user, asset);
-            uint256 price = oracle.getPrice(asset);
-            euint64 value = FHELendingMath.mulByPlaintext(debt, price);
-            totalValue = FHE.add(totalValue, value);
-            FHE.allowThis(totalValue);
+            if (euint64.unwrap(debt) != 0) {
+                euint64 normalizedDebt = _normalizeDebt(debt, user, asset);
+                uint256 price = oracle.getPrice(asset);
+                euint64 value = FHELendingMath.mulByPlaintext(normalizedDebt, price);
+                totalValue = FHE.add(totalValue, value);
+                FHE.allowThis(totalValue);
+            }
         }
 
         return totalValue;

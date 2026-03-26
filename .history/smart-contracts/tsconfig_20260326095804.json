@@ -14,8 +14,7 @@
     "compilerOptions": {
       "module": "commonjs",
       "moduleResolution": "node",
-      "ignoreDeprecations": "6.0",
-      "rootDir": "."
+      "ignoreDeprecations": "6.0"
     }
   },
   "include": [

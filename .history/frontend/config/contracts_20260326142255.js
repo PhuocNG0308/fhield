@@ -17,12 +17,6 @@ const POOL_ABI = [
   'function withdraw(address asset, tuple(uint256 ctHash, uint8 securityZone, uint8 utype, bytes signature) amount) external',
   'function claimBorrow(address asset) external',
   'function claimWithdraw(address asset) external',
-  'event Deposit(address indexed user, address indexed asset, uint256 amount)',
-  'event Borrow(address indexed user, address indexed asset)',
-  'event BorrowClaimed(address indexed user, address indexed asset, uint64 amount)',
-  'event Repay(address indexed user, address indexed asset, uint256 amount)',
-  'event Withdraw(address indexed user, address indexed asset)',
-  'event WithdrawClaimed(address indexed user, address indexed asset, uint64 amount)',
 ];
 
 const ASSET_CONFIG_ABI = [
@@ -55,9 +49,6 @@ const FHERC20_ABI = [
   'function claimUnwrapped(bytes32 claimId) external',
   'function confidentialTransfer(address to, tuple(uint256 ctHash, uint8 securityZone, uint8 utype, bytes signature) amount) external',
   'function getUserClaims(address user) view returns (bytes32[])',
-  'event UnwrapRequested(address indexed account, bytes32 claimId)',
-  'event UnwrapClaimed(address indexed account, bytes32 claimId, uint64 amount)',
-  'event Wrapped(address indexed account, uint64 amount)',
 ];
 
 const addresses = {

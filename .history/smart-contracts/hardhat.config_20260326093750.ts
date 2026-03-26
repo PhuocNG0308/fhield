@@ -22,10 +22,19 @@ const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
+      accounts: process.env.PRIVATE_KEY
+        ? [
+            {
+              privateKey: process.env.PRIVATE_KEY,
+              balance: "10000000000000000000000", // 10,000 ETH
+            },
+          ]
+        : undefined,
       chainId: 31337,
     },
     localhost: {
       url: "http://127.0.0.1:8545",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
     "arb-sepolia": {
       url:
