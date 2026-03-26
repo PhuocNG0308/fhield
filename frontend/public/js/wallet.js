@@ -1,12 +1,36 @@
 import { ContractInteraction } from './contracts.js';
 
-const ARB_SEPOLIA = {
-  chainId: '0x66eee',
-  chainName: 'Arbitrum Sepolia',
-  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: ['https://sepolia-rollup.arbitrum.io/rpc'],
-  blockExplorerUrls: ['https://sepolia.arbiscan.io'],
+const NETWORKS = {
+  '0x66eee': {
+    chainId: '0x66eee',
+    chainName: 'Arbitrum Sepolia',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: ['https://sepolia-rollup.arbitrum.io/rpc'],
+    blockExplorerUrls: ['https://sepolia.arbiscan.io'],
+  },
+  '0x7a69': {
+    chainId: '0x7a69',
+    chainName: 'Hardhat Local',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: ['http://127.0.0.1:8545'],
+    blockExplorerUrls: [],
+  },
 };
+
+let _targetNetwork = null;
+
+async function getTargetNetwork() {
+  if (_targetNetwork) return _targetNetwork;
+  try {
+    const res = await fetch('/api/config');
+    const config = await res.json();
+    const hexChainId = '0x' + config.chainId.toString(16);
+    _targetNetwork = NETWORKS[hexChainId] || NETWORKS['0x66eee'];
+  } catch {
+    _targetNetwork = NETWORKS['0x66eee'];
+  }
+  return _targetNetwork;
+}
 
 export class WalletManager {
   constructor(toast) {
@@ -16,6 +40,35 @@ export class WalletManager {
     this.balances = {};
     this.discoveredWallets = [];
     this._discoverWallets();
+    this._tryReconnect();
+  }
+
+  async _tryReconnect() {
+    const raw = window.ethereum;
+    if (!raw) return;
+    try {
+      const accounts = await raw.request({ method: 'eth_accounts' });
+      if (accounts.length > 0) {
+        this.provider = raw;
+        this.account = accounts[0];
+        ContractInteraction.setProvider(raw);
+        this.updateUI();
+        await this.loadBalances();
+
+        raw.on?.('accountsChanged', (accs) => {
+          this.account = accs[0] || null;
+          ContractInteraction.resetSigner();
+          this.updateUI();
+          if (this.account) this.loadBalances();
+          else this.disconnect();
+        });
+        raw.on?.('chainChanged', async () => {
+          ContractInteraction.resetSigner();
+          ContractInteraction.setProvider(this.provider);
+          this.loadBalances();
+        });
+      }
+    } catch { /* no previously authorized accounts */ }
   }
 
   _discoverWallets() {
@@ -165,26 +218,27 @@ export class WalletManager {
   async _ensureCorrectNetwork() {
     if (!this.provider) return false;
     try {
+      const target = await getTargetNetwork();
       const chainId = await this.provider.request({ method: 'eth_chainId' });
-      if (chainId.toLowerCase() === ARB_SEPOLIA.chainId.toLowerCase()) return true;
+      if (chainId.toLowerCase() === target.chainId.toLowerCase()) return true;
 
-      this.toast.show('Wrong network — switching to Arbitrum Sepolia...', 'info');
+      this.toast.show(`Wrong network — switching to ${target.chainName}...`, 'info');
 
       try {
         await this.provider.request({
           method: 'wallet_switchEthereumChain',
-          params: [{ chainId: ARB_SEPOLIA.chainId }],
+          params: [{ chainId: target.chainId }],
         });
         return true;
       } catch (switchErr) {
         if (switchErr.code === 4902) {
           await this.provider.request({
             method: 'wallet_addEthereumChain',
-            params: [ARB_SEPOLIA],
+            params: [target],
           });
           return true;
         }
-        this.toast.show('Please switch to Arbitrum Sepolia to use FHIELD', 'error');
+        this.toast.show(`Please switch to ${target.chainName} to use FHIELD`, 'error');
         return false;
       }
     } catch {
