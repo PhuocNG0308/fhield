@@ -1,6 +1,10 @@
+<p align="center">
+  <img src="assets/images/fhield-icon.png" alt="fhield" width="120" />
+</p>
+
 # fhield
 
-**Privacy-first DeFi lending powered by Fully Homomorphic Encryption.**
+<p align="center"><strong>Privacy-first DeFi lending powered by Fully Homomorphic Encryption.</strong></p>
 
 Built with [Fhenix CoFHE](https://cofhe-docs.fhenix.zone/) for the **Privacy-by-Design dApp Buildathon**.
 
@@ -58,7 +62,7 @@ Fhenix CoFHE enables **computation on encrypted data** directly on-chain:
 - [x] Implement `DefaultInterestRateStrategy` (utilization-based kinked curve)
 - [x] Implement `FHERC20Wrapper` (ERC20 ↔ encrypted token bridging)
 - [x] Build FHE lending math library (`FHELendingMath`, `RayMath`)
-- [x] Create stub modules: `CreditScoreStub`, `PhoenixProgramStub`
+- [x] Create stub modules: `CreditScoreStub`, `FhieldBufferStub`
 - [x] Write comprehensive test suite (32 tests across 5 suites)
 - [x] Compile full FHE/CoFHE documentation reference (`docs/`)
 
@@ -81,14 +85,14 @@ Fhenix CoFHE enables **computation on encrypted data** directly on-chain:
 - [ ] Integration tests with TrustLendPool credit score hooks
 - [ ] Frontend: credit score display with sealed decryption
 
-### Wave 4: PhoenixProgramModule (May 11–20)
+### Wave 4: FhieldBufferModule (May 11–20)
 
 - [ ] Design liquidation relief / subsidy mechanism
-- [ ] Implement `PhoenixProgramModule` replacing the stub
+- [ ] Implement `FhieldBufferModule` replacing the stub
 - [ ] Threshold-based relief triggers using encrypted health factors
 - [ ] Subsidy pool funding and distribution logic
 - [ ] Integration tests with TrustLendPool liquidation flow
-- [ ] Frontend: Phoenix program status and opt-in UI
+- [ ] Frontend: fhield buffer status and opt-in UI
 
 ### Wave 5: Polish & Showcase (May 23 – Jun 1)
 

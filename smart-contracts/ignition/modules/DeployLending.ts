@@ -31,14 +31,14 @@ const DeployLendingModule = buildModule("DeployLending", (m) => {
 
   const assetConfig = m.contract("AssetConfig", []);
   const creditScore = m.contract("CreditScoreStub", []);
-  const phoenixProgram = m.contract("PhoenixProgramStub", []);
+  const fhieldBuffer = m.contract("FhieldBufferStub", []);
 
   const lendingPool = m.contract("TrustLendPool", [
     assetConfig,
     oracle,
     strategy,
     creditScore,
-    phoenixProgram,
+    fhieldBuffer,
   ]);
 
   // USDC: LTV 80%, liq threshold 85%, bonus 5%, RF 10%, 6 decimals
@@ -67,7 +67,7 @@ const DeployLendingModule = buildModule("DeployLending", (m) => {
     strategy,
     assetConfig,
     creditScore,
-    phoenixProgram,
+    fhieldBuffer,
     lendingPool,
   };
 });

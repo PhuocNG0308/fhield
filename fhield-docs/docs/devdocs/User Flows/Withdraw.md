@@ -12,32 +12,32 @@ Withdrawing removes collateral from the pool. Like borrowing, this is a **two-st
 ```mermaid
 sequenceDiagram
     participant User
-    participant TrustLendPool
-    participant Threshold Network
+    participant Pool as TrustLendPool
+    participant TN as Threshold Network
 
     rect rgba(10, 217, 220, 0.05)
     note right of User: Step 1 — Request
-    User->>TrustLendPool: withdraw(asset, InEuint64)
-    TrustLendPool->>TrustLendPool: normalizeCollateral()
-    TrustLendPool->>TrustLendPool: actualWithdraw = min(req, balance)
-    TrustLendPool->>TrustLendPool: Compute post-withdrawal collateral
-    TrustLendPool->>TrustLendPool: Health check: newCollateral ≥ debt?
-    TrustLendPool->>TrustLendPool: FHE.select(healthy, amount, 0)
-    TrustLendPool->>Threshold Network: FHE.decrypt(finalAmount)
-    TrustLendPool-->>User: Withdraw event
+    User->>Pool: withdraw(asset, InEuint64)
+    Pool->>Pool: normalizeCollateral()
+    Pool->>Pool: actualWithdraw = min(req, bal)
+    Pool->>Pool: Compute post-withdrawal col
+    Pool->>Pool: Health check: newCol ≥ debt?
+    Pool->>Pool: FHE.select(healthy, amt, 0)
+    Pool->>TN: FHE.decrypt(finalAmount)
+    Pool-->>User: Withdraw event
     end
 
-    Threshold Network-->>Threshold Network: ... MPC decryption ...
+    TN-->>TN: MPC decryption
 
     rect rgba(10, 217, 220, 0.05)
     note right of User: Step 2 — Claim
-    Threshold Network-->>TrustLendPool: plaintext ready
-    User->>TrustLendPool: claimWithdraw(asset)
-    TrustLendPool->>TrustLendPool: getDecryptResultSafe()
-    TrustLendPool->>TrustLendPool: Transfer ERC20 to user
-    TrustLendPool->>TrustLendPool: Update totalDeposits
-    TrustLendPool->>TrustLendPool: updateRates()
-    TrustLendPool-->>User: WithdrawClaimed event
+    TN-->>Pool: plaintext ready
+    User->>Pool: claimWithdraw(asset)
+    Pool->>Pool: getDecryptResultSafe()
+    Pool->>Pool: Transfer ERC20 to user
+    Pool->>Pool: Update totalDeposits
+    Pool->>Pool: updateRates()
+    Pool-->>User: WithdrawClaimed event
     end
 ```
 

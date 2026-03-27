@@ -6,8 +6,9 @@
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
     "build": "docusaurus build",
+    "build:deploy": "cross-env DEPLOYMENT=true docusaurus build",
     "swizzle": "docusaurus swizzle",
-    "deploy": "docusaurus deploy",
+    "deploy": "cross-env DEPLOYMENT=true docusaurus deploy",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
@@ -43,6 +44,7 @@
     "@types/node": "^25.5.0",
     "@types/unist": "^3.0.3",
     "@types/yargs": "^17.0.35",
+    "cross-env": "^10.1.0",
     "typescript": "~5.2.2"
   },
   "browserslist": {

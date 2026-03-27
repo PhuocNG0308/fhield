@@ -73,7 +73,10 @@ When the protocol needs a plaintext value (e.g., to transfer ERC20 tokens), it:
 This pattern is used for:
 - **Borrow**: `borrow()` → wait → `claimBorrow()`
 - **Withdraw**: `withdraw()` → wait → `claimWithdraw()`
-- **Liquidation**: `liquidationCall()` → wait → `executeLiquidation()`
+
+:::info fhield Buffer Model — Eliminating Async Risk in Liquidation
+Liquidation **does not use** the standard 2-step async pattern. The [fhield Buffer Model](/docs/devdocs/User%20Flows/Liquidation) uses `FHE.select()` to absorb bad debt instantly into an encrypted fhield Buffer Pool — no decryption wait, no price-drop risk, no privacy leakage. Only the final aggregate auction requires decryption.
+:::
 
 ### 5. Trivial Encryption for Constants
 
@@ -116,3 +119,16 @@ This is NOT secure for user secrets — it creates a ciphertext whose plaintext 
 2. **Plaintext Totals**: Global `totalDeposits` and `totalBorrows` must stay public for interest rate calculation. This reveals aggregate pool metrics but not individual positions
 3. **Gas Cost**: FHE operations are more expensive than plaintext operations (each triggers an off-chain task)
 4. **Deposit Amount**: Currently, `deposit()` takes a plaintext `uint64` amount (visible in calldata). The `wrap()` function in FHERC20Wrapper provides fully encrypted deposits
+
+## How fhield Pushes the FHE Privacy Frontier
+
+| Challenge | Standard FHE Approach | fhield's Innovation |
+|---|---|---|
+| Liquidation discovery | Liquidator guesses who is underwater | Blind batched sweeping — no one knows |
+| Async decryption risk during liquidation | Wait for MPC decrypt, price may drop | Instant seizure via `FHE.select()` — zero latency |
+| Liquidation leaks individual amounts | `debtToCover` exposed in plaintext | Only aggregate total revealed via Dutch Auction |
+| MEV in liquidation | Gas war frontrunning | Dutch Auction with uniform price decay |
+| Failed operation leaks health status | Tx reverts reveal information | Zero-replacement pattern — always succeeds |
+| Asset composition detectable via gas | Gas varies by number of assets | Constant-time loops across all assets |
+
+→ See [Liquidation: fhield Buffer Model](/docs/devdocs/User%20Flows/Liquidation) for the complete architecture.

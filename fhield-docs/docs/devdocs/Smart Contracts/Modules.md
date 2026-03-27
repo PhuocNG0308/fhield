@@ -41,16 +41,16 @@ euint64 collateralValue = _computeEncryptedCollateralValue(msg.sender, ltvBoost)
 
 ---
 
-## PhoenixProgramStub
+## FhieldBufferStub
 
-**Implements**: `IPhoenixProgram`
+**Implements**: `IFhieldBuffer`
 
 Provides liquidation relief — a subsidy system that can reduce penalties for liquidated users.
 
 ### Interface
 
 ```solidity
-interface IPhoenixProgram {
+interface IFhieldBuffer {
     function getReliefShare(address user, uint256 penaltyAmount) external view returns (uint256);
     function onLiquidation(address user, uint256 reliefAmount) external;
 }
@@ -67,11 +67,11 @@ interface IPhoenixProgram {
 | `getReliefShare` | Calculate subsidy amount from insurance pool |
 | `onLiquidation` | Execute relief payment, emit events, update user score |
 
-**Integration point** in `TrustLendPool._triggerPhoenixRelief()`:
+**Integration point** in `TrustLendPool._triggerFhieldRelief()`:
 ```solidity
-uint256 reliefShare = phoenixProgram.getReliefShare(borrower, penaltyAmount);
+uint256 reliefShare = FhieldBuffer.getReliefShare(borrower, penaltyAmount);
 if (reliefShare > 0) {
-    phoenixProgram.onLiquidation(borrower, reliefShare);
+    FhieldBuffer.onLiquidation(borrower, reliefShare);
 }
 ```
 

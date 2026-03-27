@@ -12,32 +12,32 @@ Borrowing is a **two-step async** operation because it requires off-chain decryp
 ```mermaid
 sequenceDiagram
     participant User
-    participant TrustLendPool
-    participant Threshold Network
+    participant Pool as TrustLendPool
+    participant TN as Threshold Network
 
     rect rgba(10, 217, 220, 0.05)
     note right of User: Step 1 — Request
-    User->>TrustLendPool: borrow(asset, InEuint64)
-    TrustLendPool->>TrustLendPool: Convert InEuint64 → euint64
-    TrustLendPool->>TrustLendPool: Compute encrypted collateral value
-    TrustLendPool->>TrustLendPool: Compute encrypted debt value
-    TrustLendPool->>TrustLendPool: Health check: collateral ≥ debt + newBorrow?
-    TrustLendPool->>TrustLendPool: FHE.select(healthy, amount, 0)
-    TrustLendPool->>Threshold Network: FHE.decrypt(actualAmount)
-    TrustLendPool-->>User: Borrow event
+    User->>Pool: borrow(asset, InEuint64)
+    Pool->>Pool: Convert InEuint64 → euint64
+    Pool->>Pool: Compute collateral value
+    Pool->>Pool: Compute debt value
+    Pool->>Pool: Health check: col ≥ debt?
+    Pool->>Pool: FHE.select(healthy, amt, 0)
+    Pool->>TN: FHE.decrypt(actualAmount)
+    Pool-->>User: Borrow event
     end
 
-    Threshold Network-->>Threshold Network: ... MPC decryption ...
+    TN-->>TN: MPC decryption
 
     rect rgba(10, 217, 220, 0.05)
     note right of User: Step 2 — Claim
-    Threshold Network-->>TrustLendPool: plaintext ready
-    User->>TrustLendPool: claimBorrow(asset)
-    TrustLendPool->>TrustLendPool: getDecryptResultSafe()
-    TrustLendPool->>TrustLendPool: Transfer ERC20 to user
-    TrustLendPool->>TrustLendPool: Update totalBorrows
-    TrustLendPool->>TrustLendPool: updateRates()
-    TrustLendPool-->>User: BorrowClaimed event
+    TN-->>Pool: plaintext ready
+    User->>Pool: claimBorrow(asset)
+    Pool->>Pool: getDecryptResultSafe()
+    Pool->>Pool: Transfer ERC20 to user
+    Pool->>Pool: Update totalBorrows
+    Pool->>Pool: updateRates()
+    Pool-->>User: BorrowClaimed event
     end
 ```
 
