@@ -10,7 +10,7 @@ import "../libraries/RayMath.sol";
 import "../libraries/FHELendingMath.sol";
 import "../interfaces/IInterestRateStrategy.sol";
 import "../interfaces/ICreditScore.sol";
-import "../interfaces/IFhieldBuffer.sol";
+import "../interfaces/IPhoenixProgram.sol";
 import "./ReserveLogic.sol";
 import "./PriceOracle.sol";
 import "./AssetConfig.sol";
@@ -24,7 +24,7 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
     PriceOracle public oracle;
     IInterestRateStrategy public interestRateStrategy;
     ICreditScore public creditScore;
-    IFhieldBuffer public fhieldBuffer;
+    IPhoenixProgram public phoenixProgram;
 
     mapping(address => ReserveLogic.ReserveData) internal _reserves;
 
@@ -44,32 +44,59 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
     uint256 public constant CLOSE_FACTOR = 5000;
     uint256 public constant CLOSE_FACTOR_PRECISION = 10000;
 
-    uint256 public constant DUTCH_AUCTION_DECAY_RATE = 10;
-    uint256 public constant DUTCH_AUCTION_MIN_PRICE = 8000;
-    uint256 public constant DUTCH_AUCTION_START_PRICE = 9800;
-    uint256 public constant SWEEP_COOLDOWN = 10;
-
-    mapping(address => euint64) internal _fhieldDebtPool;
-    mapping(address => euint64) internal _fhieldColPool;
-
-    uint256 private _sweepNonce;
-
-    struct Auction {
+    struct LiquidationRequest {
+        address liquidator;
+        address borrower;
         address debtAsset;
         address collateralAsset;
-        euint64 encDebt;
-        euint64 encCollateral;
-        uint256 totalDebt;
-        uint256 totalCollateral;
-        uint256 startBlock;
-        bool started;
-        bool settled;
+        ebool isUndercollateralized;
+        bool executed;
     }
 
-    mapping(bytes32 => Auction) public auctions;
-    uint256 private _auctionNonce;
+    mapping(bytes32 => LiquidationRequest) public liquidationRequests;
+    uint256 private _liquidationNonce;
 
-    mapping(address => uint256) public lastSweepBlock;
+    // ─── FHIELD BUFFER MODEL STATE ──────────────────────────────────────
+
+    uint256 public maxSweepBatchSize = 3;
+    uint256 public keeperBountyPerUser;
+    mapping(address => uint256) public keeperBountyReserve;
+
+    uint256 public constant SWEEP_COOLDOWN = 600;
+    mapping(address => uint256) public lastSweptTimestamp;
+    mapping(address => bool) public hasBorrowed;
+
+    struct BufferPool {
+        euint64 encCollateral;
+        euint64 encDebt;
+    }
+    mapping(bytes32 => BufferPool) internal _bufferPools;
+
+    struct PendingAuction {
+        euint64 encCollateral;
+        euint64 encDebt;
+        bool pending;
+    }
+    mapping(bytes32 => PendingAuction) internal _pendingAuctions;
+
+    uint256 public constant AUCTION_DURATION = 3600;
+    uint256 public constant AUCTION_START_PREMIUM = 10500;
+    uint256 public constant AUCTION_FLOOR = 8000;
+    uint256 private constant PRICE_PRECISION = 1e18;
+    uint256 private constant LIQUIDATION_PRECISION = 1e6;
+
+    struct Auction {
+        address collateralAsset;
+        address debtAsset;
+        uint64 collateralRemaining;
+        uint64 debtToRecover;
+        uint64 debtRecovered;
+        uint256 startTime;
+        bool active;
+    }
+    mapping(bytes32 => Auction) public auctions;
+
+    mapping(address => uint256) public insuranceFund;
 
     event Deposit(address indexed user, address indexed asset, uint256 amount);
     event Borrow(address indexed user, address indexed asset);
@@ -77,23 +104,29 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
     event Repay(address indexed user, address indexed asset, uint256 amount);
     event Withdraw(address indexed user, address indexed asset);
     event WithdrawClaimed(address indexed user, address indexed asset, uint64 amount);
-    event SweepCompleted(bytes32 indexed batchId, uint256 userCount);
-    event AuctionRequested(bytes32 indexed auctionId, address debtAsset, address collateralAsset);
-    event AuctionStarted(bytes32 indexed auctionId, uint256 totalDebt, uint256 totalCollateral);
-    event AuctionSettled(bytes32 indexed auctionId, address indexed liquidator, uint256 debtPaid, uint256 collateralReceived);
+    event LiquidationRequested(bytes32 indexed requestId, address indexed borrower, address liquidator);
+    event LiquidationExecuted(bytes32 indexed requestId, address indexed borrower, uint64 debtRepaid);
+    event Swept(address indexed keeper, address collateralAsset, address debtAsset, uint256 usersCount);
+    event KeeperBountyPaid(address indexed keeper, address asset, uint256 amount);
+    event BufferDecryptRequested(bytes32 indexed pairKey);
+    event AuctionStarted(bytes32 indexed pairKey, uint64 collateral, uint64 debt);
+    event AuctionBid(bytes32 indexed pairKey, address indexed bidder, uint64 colBought, uint64 debtPaid);
+    event AuctionSettled(bytes32 indexed pairKey, uint64 debtRecovered, int256 surplus);
+    event BadDebtCovered(address indexed asset, uint256 shortfall, uint256 covered);
+    event InsuranceDeposited(address indexed asset, uint256 amount);
 
     constructor(
         address _assetConfig,
         address _oracle,
         address _interestRateStrategy,
         address _creditScore,
-        address _fhieldBuffer
+        address _phoenixProgram
     ) Ownable(msg.sender) {
         assetConfig = AssetConfig(_assetConfig);
         oracle = PriceOracle(_oracle);
         interestRateStrategy = IInterestRateStrategy(_interestRateStrategy);
         creditScore = ICreditScore(_creditScore);
-        fhieldBuffer = IFhieldBuffer(_fhieldBuffer);
+        phoenixProgram = IPhoenixProgram(_phoenixProgram);
     }
 
     // ─── DEPOSIT (Supply) ────────────────────────────────────────────────
@@ -152,6 +185,8 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
 
         ebool healthy = FHE.gte(totalCollateralValue, newDebtValue);
         euint64 actualAmount = FHE.select(healthy, encAmount, FHELendingMath.encryptedZero());
+
+        hasBorrowed[msg.sender] = true;
 
         euint64 normalizedDebt = _safeDebt(msg.sender, asset);
         _debtBalances[msg.sender][asset] = FHE.add(normalizedDebt, actualAmount);
@@ -277,190 +312,422 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         emit WithdrawClaimed(msg.sender, asset, amount);
     }
 
-    // ─── LIQUIDATION: 3-STAGE FHIELD BUFFER MODEL ─────────────────────
+    // ─── LIQUIDATION (2-step async) ──────────────────────────────────────
+    //  Phoenix Hook: _triggerPhoenixRelief (→ 0% relief share)
 
-    // Stage 1 + 2: Blind batched sweeping + instant encrypted seizure
-    function sweepLiquidations(address[] calldata users) external nonReentrant returns (bytes32 batchId) {
-        batchId = keccak256(abi.encodePacked(block.number, msg.sender, _sweepNonce++));
+    function liquidationCall(
+        address collateralAsset,
+        address debtAsset,
+        address borrower
+    ) external nonReentrant returns (bytes32) {
+        require(assetConfig.isSupported(debtAsset), "Unsupported debt asset");
+        require(assetConfig.isSupported(collateralAsset), "Unsupported collateral");
+
+        _reserves[debtAsset].accrueInterest();
+
+        euint64 collateralValue = _computeEncryptedLiquidationCollateralValue(borrower);
+        euint64 debtValue = _computeEncryptedDebtValue(borrower);
+
+        ebool isUndercollateralized = FHE.lt(collateralValue, debtValue);
+        FHE.allowThis(isUndercollateralized);
+        FHE.decrypt(isUndercollateralized);
+
+        bytes32 requestId = keccak256(
+            abi.encodePacked(msg.sender, borrower, debtAsset, collateralAsset, _liquidationNonce++)
+        );
+
+        liquidationRequests[requestId] = LiquidationRequest({
+            liquidator: msg.sender,
+            borrower: borrower,
+            debtAsset: debtAsset,
+            collateralAsset: collateralAsset,
+            isUndercollateralized: isUndercollateralized,
+            executed: false
+        });
+
+        emit LiquidationRequested(requestId, borrower, msg.sender);
+        return requestId;
+    }
+
+    function executeLiquidation(
+        bytes32 requestId,
+        uint64 debtToCover
+    ) external nonReentrant {
+        LiquidationRequest storage req = liquidationRequests[requestId];
+        require(req.liquidator == msg.sender, "Not liquidator");
+        require(!req.executed, "Already executed");
+
+        {
+            (bool isUnder, bool ready) = FHE.getDecryptResultSafe(req.isUndercollateralized);
+            require(ready, "Decrypt not ready");
+            require(isUnder, "Position is healthy");
+        }
+
+        req.executed = true;
+
+        _reserves[req.debtAsset].accrueInterest();
+
+        IERC20(req.debtAsset).safeTransferFrom(msg.sender, address(this), debtToCover);
+        _repayDebtOnLiquidation(req.borrower, req.debtAsset, debtToCover);
+
+        (uint256 collateralAmount, uint256 penaltyAmount) = _calculateLiquidationAmounts(
+            req.debtAsset, req.collateralAsset, debtToCover
+        );
+
+        // ══════ PHOENIX PROGRAM HOOK (currently 0% relief) ══════
+        _triggerPhoenixRelief(req.borrower, penaltyAmount);
+
+        _seizeCollateral(req.borrower, req.collateralAsset, collateralAmount);
+        IERC20(req.collateralAsset).safeTransfer(msg.sender, collateralAmount);
+
+        _updateTotalsAfterLiquidation(req.debtAsset, req.collateralAsset, debtToCover, collateralAmount);
+
+        emit LiquidationExecuted(requestId, req.borrower, debtToCover);
+    }
+
+    function _repayDebtOnLiquidation(address borrower, address debtAsset, uint64 debtToCover) internal {
+        euint64 encRepay = FHE.asEuint64(debtToCover);
+        euint64 normalizedDebt = _safeDebt(borrower, debtAsset);
+        euint64 actualRepay = FHELendingMath.encryptedMin(encRepay, normalizedDebt);
+        _debtBalances[borrower][debtAsset] = FHE.sub(normalizedDebt, actualRepay);
+        userBorrowIndex[borrower][debtAsset] = _reserves[debtAsset].variableBorrowIndex;
+
+        FHE.allowThis(_debtBalances[borrower][debtAsset]);
+        FHE.allow(_debtBalances[borrower][debtAsset], borrower);
+    }
+
+    function _calculateLiquidationAmounts(
+        address debtAsset,
+        address collateralAsset,
+        uint64 debtToCover
+    ) internal view returns (uint256 collateralAmount, uint256 penaltyAmount) {
+        uint256 bonus = assetConfig.getAsset(collateralAsset).liquidationBonus;
+        uint256 debtPrice = oracle.getPrice(debtAsset);
+        uint256 colPrice = oracle.getPrice(collateralAsset);
+        uint256 pctPrec = assetConfig.PERCENTAGE_PRECISION();
+
+        collateralAmount = (uint256(debtToCover) * debtPrice * (pctPrec + bonus))
+            / (colPrice * pctPrec);
+        penaltyAmount = (uint256(debtToCover) * debtPrice * bonus)
+            / (colPrice * pctPrec);
+    }
+
+    function _seizeCollateral(address borrower, address collateralAsset, uint256 amount) internal {
+        euint64 encSeize = FHE.asEuint64(uint64(amount));
+        euint64 normalized = _safeCollateral(borrower, collateralAsset);
+        euint64 actualSeize = FHELendingMath.encryptedMin(encSeize, normalized);
+        _collateralBalances[borrower][collateralAsset] = FHE.sub(normalized, actualSeize);
+        userLiquidityIndex[borrower][collateralAsset] = _reserves[collateralAsset].liquidityIndex;
+
+        FHE.allowThis(_collateralBalances[borrower][collateralAsset]);
+        FHE.allow(_collateralBalances[borrower][collateralAsset], borrower);
+    }
+
+    function _updateTotalsAfterLiquidation(
+        address debtAsset,
+        address collateralAsset,
+        uint64 debtToCover,
+        uint256 collateralAmount
+    ) internal {
+        totalBorrows[debtAsset] = totalBorrows[debtAsset] > debtToCover
+            ? totalBorrows[debtAsset] - debtToCover
+            : 0;
+        totalDeposits[collateralAsset] = totalDeposits[collateralAsset] > collateralAmount
+            ? totalDeposits[collateralAsset] - collateralAmount
+            : 0;
+
+        uint256 rfDebt = _getReserveFactorRay(debtAsset);
+        _reserves[debtAsset].updateRates(totalDeposits[debtAsset], totalBorrows[debtAsset], interestRateStrategy, rfDebt);
+
+        if (collateralAsset != debtAsset) {
+            uint256 rfCol = _getReserveFactorRay(collateralAsset);
+            _reserves[collateralAsset].updateRates(totalDeposits[collateralAsset], totalBorrows[collateralAsset], interestRateStrategy, rfCol);
+        }
+    }
+
+    // ─── FHIELD BUFFER MODEL (3-Stage Liquidation) ─────────────────────
+    //  Stage 1: sweepLiquidations — Keeper batch-checks users in encrypted space
+    //  Stage 2: requestBufferDecrypt — Aggregate decrypt for Buffer Pool
+    //  Stage 3: Dutch Auction — Per-asset auction for liquidated collateral
+
+    function sweepLiquidations(
+        address[] calldata users,
+        address collateralAsset,
+        address debtAsset
+    ) external nonReentrant {
+        require(users.length > 0 && users.length <= maxSweepBatchSize, "Invalid batch size");
+        require(assetConfig.isSupported(collateralAsset), "Unsupported collateral");
+        require(assetConfig.isSupported(debtAsset), "Unsupported debt");
+
+        bytes32 pKey = _pairKey(collateralAsset, debtAsset);
 
         _accrueAllReserves();
 
-        uint256 assetCount = assetConfig.getAssetCount();
+        uint256 debtPrice = oracle.getPrice(debtAsset);
+        uint256 colPrice = oracle.getPrice(collateralAsset);
+        uint256 bonus = assetConfig.getAsset(collateralAsset).liquidationBonus;
+        uint256 pctPrec = assetConfig.PERCENTAGE_PRECISION();
 
+        uint256 scaledRatio = (debtPrice * (pctPrec + bonus) * PRICE_PRECISION)
+            / (colPrice * pctPrec);
+        require(scaledRatio > 0, "Price ratio zero");
+
+        uint256 swept;
         for (uint256 i = 0; i < users.length; i++) {
-            address user = users[i];
+            if (!hasBorrowed[users[i]]) continue;
+            if (block.timestamp < lastSweptTimestamp[users[i]] + SWEEP_COOLDOWN) continue;
 
-            euint64 colVal = _computeEncryptedLiquidationCollateralValue(user);
-            euint64 debtVal = _computeEncryptedDebtValue(user);
-            ebool isUnder = FHE.lt(colVal, debtVal);
-
-            for (uint256 j = 0; j < assetCount; j++) {
-                address asset = assetConfig.assetList(j);
-
-                euint64 userDebt = _safeDebt(user, asset);
-                euint64 userCol = _safeCollateral(user, asset);
-
-                euint64 debtToSeize = FHELendingMath.divByPlaintext(
-                    FHELendingMath.mulByPlaintext(userDebt, CLOSE_FACTOR),
-                    CLOSE_FACTOR_PRECISION
-                );
-                euint64 colToSeize = FHELendingMath.divByPlaintext(
-                    FHELendingMath.mulByPlaintext(userCol, CLOSE_FACTOR),
-                    CLOSE_FACTOR_PRECISION
-                );
-
-                euint64 debtToTransfer = FHE.select(isUnder, debtToSeize, FHE.asEuint64(0));
-                euint64 colToTransfer = FHE.select(isUnder, colToSeize, FHE.asEuint64(0));
-
-                euint64 poolDebt = _safeFhieldPool(_fhieldDebtPool[asset]);
-                _fhieldDebtPool[asset] = FHE.add(poolDebt, debtToTransfer);
-                FHE.allowThis(_fhieldDebtPool[asset]);
-
-                euint64 poolCol = _safeFhieldPool(_fhieldColPool[asset]);
-                _fhieldColPool[asset] = FHE.add(poolCol, colToTransfer);
-                FHE.allowThis(_fhieldColPool[asset]);
-
-                _debtBalances[user][asset] = FHE.sub(userDebt, debtToTransfer);
-                FHE.allowThis(_debtBalances[user][asset]);
-                FHE.allow(_debtBalances[user][asset], user);
-
-                _collateralBalances[user][asset] = FHE.sub(userCol, colToTransfer);
-                FHE.allowThis(_collateralBalances[user][asset]);
-                FHE.allow(_collateralBalances[user][asset], user);
-
-                userBorrowIndex[user][asset] = _reserves[asset].variableBorrowIndex;
-                userLiquidityIndex[user][asset] = _reserves[asset].liquidityIndex;
-            }
-
-            lastSweepBlock[user] = block.number;
+            lastSweptTimestamp[users[i]] = block.timestamp;
+            _sweepUser(users[i], collateralAsset, debtAsset, pKey, scaledRatio);
+            swept++;
         }
 
-        emit SweepCompleted(batchId, users.length);
-    }
-
-    function _safeFhieldPool(euint64 raw) internal returns (euint64) {
-        if (euint64.unwrap(raw) == 0) return FHELendingMath.encryptedZero();
-        return raw;
-    }
-
-    function _accrueAllReserves() internal {
-        uint256 count = assetConfig.getAssetCount();
-        for (uint256 i = 0; i < count; i++) {
-            _reserves[assetConfig.assetList(i)].accrueInterest();
+        uint256 bounty = swept * keeperBountyPerUser;
+        if (bounty > 0 && keeperBountyReserve[debtAsset] >= bounty) {
+            keeperBountyReserve[debtAsset] -= bounty;
+            IERC20(debtAsset).safeTransfer(msg.sender, bounty);
+            emit KeeperBountyPaid(msg.sender, debtAsset, bounty);
         }
+
+        emit Swept(msg.sender, collateralAsset, debtAsset, swept);
     }
 
-    // Stage 3a: Request auction — triggers decrypt of fhield pool aggregates
-    function requestAuction(
+    function _sweepUser(
+        address user,
+        address collateralAsset,
         address debtAsset,
-        address collateralAsset
-    ) external nonReentrant returns (bytes32 auctionId) {
-        auctionId = keccak256(abi.encodePacked(block.number, msg.sender, _auctionNonce++));
+        bytes32 pKey,
+        uint256 scaledRatio
+    ) internal {
+        euint64 totalColValue = _computeEncryptedLiquidationCollateralValue(user);
+        euint64 totalDebtValue = _computeEncryptedDebtValue(user);
+        ebool isUnder = FHE.lt(totalColValue, totalDebtValue);
 
-        euint64 encDebt = _safeFhieldPool(_fhieldDebtPool[debtAsset]);
-        euint64 encCol = _safeFhieldPool(_fhieldColPool[collateralAsset]);
+        euint64 userDebt = _safeDebt(user, debtAsset);
+        euint64 userCol = _safeCollateral(user, collateralAsset);
 
-        FHE.allowThis(encDebt);
-        FHE.allowThis(encCol);
-        FHE.decrypt(encDebt);
-        FHE.decrypt(encCol);
-
-        _fhieldDebtPool[debtAsset] = FHE.asEuint64(0);
-        FHE.allowThis(_fhieldDebtPool[debtAsset]);
-
-        _fhieldColPool[collateralAsset] = FHE.asEuint64(0);
-        FHE.allowThis(_fhieldColPool[collateralAsset]);
-
-        auctions[auctionId] = Auction({
-            debtAsset: debtAsset,
-            collateralAsset: collateralAsset,
-            encDebt: encDebt,
-            encCollateral: encCol,
-            totalDebt: 0,
-            totalCollateral: 0,
-            startBlock: 0,
-            started: false,
-            settled: false
-        });
-
-        emit AuctionRequested(auctionId, debtAsset, collateralAsset);
-    }
-
-    // Stage 3b: Start auction after decrypt completes
-    function startAuction(bytes32 auctionId) external nonReentrant {
-        Auction storage auction = auctions[auctionId];
-        require(auction.debtAsset != address(0), "Auction not found");
-        require(!auction.started, "Already started");
-
-        (uint64 debt, bool debtReady) = FHE.getDecryptResultSafe(auction.encDebt);
-        (uint64 col, bool colReady) = FHE.getDecryptResultSafe(auction.encCollateral);
-        require(debtReady && colReady, "Decrypt not ready");
-        require(debt > 0, "No debt to auction");
-
-        auction.totalDebt = uint256(debt);
-        auction.totalCollateral = uint256(col);
-        auction.startBlock = block.number;
-        auction.started = true;
-
-        totalBorrows[auction.debtAsset] = totalBorrows[auction.debtAsset] > debt
-            ? totalBorrows[auction.debtAsset] - debt
-            : 0;
-
-        uint256 rfDebt = _getReserveFactorRay(auction.debtAsset);
-        _reserves[auction.debtAsset].updateRates(
-            totalDeposits[auction.debtAsset], totalBorrows[auction.debtAsset], interestRateStrategy, rfDebt
+        // Fix #1: debtToBuffer = userDebt * CLOSE_FACTOR / CLOSE_FACTOR_PRECISION
+        euint64 debtToBuffer = FHELendingMath.divByPlaintext(
+            FHELendingMath.mulByPlaintext(userDebt, CLOSE_FACTOR),
+            CLOSE_FACTOR_PRECISION
         );
+        FHE.allowThis(debtToBuffer);
 
-        emit AuctionStarted(auctionId, auction.totalDebt, auction.totalCollateral);
-    }
-
-    // Stage 3c: Liquidator bids at current Dutch Auction price
-    function bid(bytes32 auctionId) external nonReentrant {
-        Auction storage auction = auctions[auctionId];
-        require(auction.started && !auction.settled, "Invalid auction");
-
-        uint256 elapsed = block.number - auction.startBlock;
-        uint256 currentPriceBPS = _getAuctionPriceBPS(elapsed);
-        require(currentPriceBPS >= DUTCH_AUCTION_MIN_PRICE, "Below min price");
-
-        uint256 collateralToReceive = (auction.totalCollateral * currentPriceBPS)
-            / CLOSE_FACTOR_PRECISION;
-
-        auction.settled = true;
-
-        IERC20(auction.debtAsset).safeTransferFrom(msg.sender, address(this), auction.totalDebt);
-        IERC20(auction.collateralAsset).safeTransfer(msg.sender, collateralToReceive);
-
-        totalDeposits[auction.collateralAsset] = totalDeposits[auction.collateralAsset] > collateralToReceive
-            ? totalDeposits[auction.collateralAsset] - collateralToReceive
-            : 0;
-
-        uint256 rfCol = _getReserveFactorRay(auction.collateralAsset);
-        _reserves[auction.collateralAsset].updateRates(
-            totalDeposits[auction.collateralAsset], totalBorrows[auction.collateralAsset], interestRateStrategy, rfCol
+        euint64 colToSeize = FHELendingMath.divByPlaintext(
+            FHELendingMath.mulByPlaintext(debtToBuffer, scaledRatio),
+            PRICE_PRECISION
         );
+        FHE.allowThis(colToSeize);
 
-        _triggerFhieldRelief(auction.debtAsset, auction.totalDebt);
+        colToSeize = FHELendingMath.encryptedMin(colToSeize, userCol);
+        FHE.allowThis(colToSeize);
 
-        emit AuctionSettled(auctionId, msg.sender, auction.totalDebt, collateralToReceive);
+        euint64 zero = FHELendingMath.encryptedZero();
+        euint64 actualDebt = FHE.select(isUnder, debtToBuffer, zero);
+        euint64 actualCol = FHE.select(isUnder, colToSeize, zero);
+        FHE.allowThis(actualDebt);
+        FHE.allowThis(actualCol);
+
+        _debtBalances[user][debtAsset] = FHE.sub(userDebt, actualDebt);
+        FHE.allowThis(_debtBalances[user][debtAsset]);
+        FHE.allow(_debtBalances[user][debtAsset], user);
+        userBorrowIndex[user][debtAsset] = _reserves[debtAsset].variableBorrowIndex;
+
+        _collateralBalances[user][collateralAsset] = FHE.sub(userCol, actualCol);
+        FHE.allowThis(_collateralBalances[user][collateralAsset]);
+        FHE.allow(_collateralBalances[user][collateralAsset], user);
+        userLiquidityIndex[user][collateralAsset] = _reserves[collateralAsset].liquidityIndex;
+
+        BufferPool storage buf = _bufferPools[pKey];
+        if (euint64.unwrap(buf.encDebt) == 0) {
+            buf.encDebt = actualDebt;
+        } else {
+            buf.encDebt = FHE.add(buf.encDebt, actualDebt);
+        }
+        FHE.allowThis(buf.encDebt);
+
+        if (euint64.unwrap(buf.encCollateral) == 0) {
+            buf.encCollateral = actualCol;
+        } else {
+            buf.encCollateral = FHE.add(buf.encCollateral, actualCol);
+        }
+        FHE.allowThis(buf.encCollateral);
     }
 
-    function getAuctionPrice(bytes32 auctionId) external view returns (uint256) {
-        Auction storage auction = auctions[auctionId];
-        require(auction.started && !auction.settled, "Invalid auction");
-        uint256 elapsed = block.number - auction.startBlock;
-        return _getAuctionPriceBPS(elapsed);
+    // ── Stage 2: Buffer Pool Decrypt ─────────────────────────────────────
+
+    function requestBufferDecrypt(
+        address collateralAsset,
+        address debtAsset
+    ) external nonReentrant {
+        bytes32 pKey = _pairKey(collateralAsset, debtAsset);
+        BufferPool storage buf = _bufferPools[pKey];
+        PendingAuction storage pa = _pendingAuctions[pKey];
+
+        require(euint64.unwrap(buf.encDebt) != 0, "Buffer empty");
+        require(!pa.pending, "Already requested");
+
+        pa.encCollateral = buf.encCollateral;
+        pa.encDebt = buf.encDebt;
+        pa.pending = true;
+        FHE.allowThis(pa.encCollateral);
+        FHE.allowThis(pa.encDebt);
+
+        buf.encCollateral = FHE.asEuint64(0);
+        buf.encDebt = FHE.asEuint64(0);
+        FHE.allowThis(buf.encCollateral);
+        FHE.allowThis(buf.encDebt);
+
+        FHE.decrypt(pa.encCollateral);
+        FHE.decrypt(pa.encDebt);
+
+        emit BufferDecryptRequested(pKey);
     }
 
-    function _getAuctionPriceBPS(uint256 elapsed) internal pure returns (uint256) {
-        uint256 decay = DUTCH_AUCTION_DECAY_RATE * elapsed;
-        if (decay >= DUTCH_AUCTION_START_PRICE) return DUTCH_AUCTION_MIN_PRICE;
-        uint256 price = DUTCH_AUCTION_START_PRICE - decay;
-        return price < DUTCH_AUCTION_MIN_PRICE ? DUTCH_AUCTION_MIN_PRICE : price;
+    // ── Stage 3: Dutch Auction (per collateral-debt pair) ────────────────
+
+    function startDutchAuction(
+        address collateralAsset,
+        address debtAsset
+    ) external nonReentrant {
+        bytes32 pKey = _pairKey(collateralAsset, debtAsset);
+        PendingAuction storage pa = _pendingAuctions[pKey];
+        Auction storage auc = auctions[pKey];
+
+        require(pa.pending, "No decrypt pending");
+        require(!auc.active, "Auction active");
+
+        (uint64 colAmt, bool colReady) = FHE.getDecryptResultSafe(pa.encCollateral);
+        (uint64 debtAmt, bool debtReady) = FHE.getDecryptResultSafe(pa.encDebt);
+        require(colReady && debtReady, "Decrypt not ready");
+
+        pa.encCollateral = FHE.asEuint64(0);
+        pa.encDebt = FHE.asEuint64(0);
+        FHE.allowThis(pa.encCollateral);
+        FHE.allowThis(pa.encDebt);
+        pa.pending = false;
+
+        if (colAmt == 0 || debtAmt == 0) return;
+
+        totalBorrows[debtAsset] = totalBorrows[debtAsset] > debtAmt
+            ? totalBorrows[debtAsset] - debtAmt : 0;
+        totalDeposits[collateralAsset] = totalDeposits[collateralAsset] > colAmt
+            ? totalDeposits[collateralAsset] - colAmt : 0;
+
+        _updateRatesForAsset(debtAsset);
+        if (collateralAsset != debtAsset) {
+            _updateRatesForAsset(collateralAsset);
+        }
+
+        auc.collateralAsset = collateralAsset;
+        auc.debtAsset = debtAsset;
+        auc.collateralRemaining = colAmt;
+        auc.debtToRecover = debtAmt;
+        auc.debtRecovered = 0;
+        auc.startTime = block.timestamp;
+        auc.active = true;
+
+        emit AuctionStarted(pKey, colAmt, debtAmt);
     }
 
-    function getFhieldPoolBalance(address asset) external view returns (euint64 debt, euint64 collateral) {
-        return (_fhieldDebtPool[asset], _fhieldColPool[asset]);
+    function getAuctionPrice(bytes32 pKey) public view returns (uint256) {
+        Auction storage auc = auctions[pKey];
+        require(auc.active, "No active auction");
+
+        uint256 colPrice = oracle.getPrice(auc.collateralAsset);
+        uint256 pctPrec = assetConfig.PERCENTAGE_PRECISION();
+        uint256 elapsed = block.timestamp - auc.startTime;
+
+        if (elapsed >= AUCTION_DURATION) {
+            return (colPrice * AUCTION_FLOOR) / pctPrec;
+        }
+
+        uint256 decay = ((AUCTION_START_PREMIUM - AUCTION_FLOOR) * elapsed) / AUCTION_DURATION;
+        return (colPrice * (AUCTION_START_PREMIUM - decay)) / pctPrec;
+    }
+
+    function bidDutchAuction(
+        address collateralAsset,
+        address debtAsset,
+        uint64 collateralToBuy
+    ) external nonReentrant {
+        bytes32 pKey = _pairKey(collateralAsset, debtAsset);
+        Auction storage auc = auctions[pKey];
+        require(auc.active, "No active auction");
+        require(collateralToBuy > 0 && collateralToBuy <= auc.collateralRemaining, "Invalid amount");
+
+        uint256 pricePerCol = getAuctionPrice(pKey);
+        uint256 debtPrice = oracle.getPrice(debtAsset);
+        uint256 debtCost = (uint256(collateralToBuy) * pricePerCol) / debtPrice;
+        require(debtCost > 0 && debtCost <= type(uint64).max, "Invalid cost");
+
+        IERC20(debtAsset).safeTransferFrom(msg.sender, address(this), debtCost);
+        IERC20(collateralAsset).safeTransfer(msg.sender, collateralToBuy);
+
+        auc.collateralRemaining -= collateralToBuy;
+        auc.debtRecovered += uint64(debtCost);
+
+        emit AuctionBid(pKey, msg.sender, collateralToBuy, uint64(debtCost));
+
+        if (auc.collateralRemaining == 0) {
+            _closeDutchAuction(pKey);
+        }
+    }
+
+    function closeDutchAuction(
+        address collateralAsset,
+        address debtAsset
+    ) external nonReentrant {
+        bytes32 pKey = _pairKey(collateralAsset, debtAsset);
+        Auction storage auc = auctions[pKey];
+        require(auc.active, "No active auction");
+        require(
+            block.timestamp >= auc.startTime + AUCTION_DURATION
+                || auc.collateralRemaining == 0,
+            "Auction still running"
+        );
+        _closeDutchAuction(pKey);
+    }
+
+    function _closeDutchAuction(bytes32 pKey) internal {
+        Auction storage auc = auctions[pKey];
+        auc.active = false;
+
+        int256 surplus = int256(uint256(auc.debtRecovered))
+            - int256(uint256(auc.debtToRecover));
+
+        if (surplus >= 0) {
+            insuranceFund[auc.debtAsset] += uint256(surplus);
+        } else {
+            _coverBadDebt(auc.debtAsset, uint256(-surplus));
+        }
+
+        _updateRatesForAsset(auc.debtAsset);
+        if (auc.collateralAsset != auc.debtAsset) {
+            _updateRatesForAsset(auc.collateralAsset);
+        }
+
+        emit AuctionSettled(pKey, auc.debtRecovered, surplus);
+    }
+
+    // ── Safety Module (Insurance Fund) ───────────────────────────────────
+
+    function _coverBadDebt(address debtAsset, uint256 shortfall) internal {
+        uint256 covered;
+        if (insuranceFund[debtAsset] >= shortfall) {
+            insuranceFund[debtAsset] -= shortfall;
+            covered = shortfall;
+        } else {
+            covered = insuranceFund[debtAsset];
+            insuranceFund[debtAsset] = 0;
+        }
+        emit BadDebtCovered(debtAsset, shortfall, covered);
+    }
+
+    function depositInsurance(address asset, uint256 amount) external onlyOwner {
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
+        insuranceFund[asset] += amount;
+        emit InsuranceDeposited(asset, amount);
     }
 
     // ─── VIEW FUNCTIONS ──────────────────────────────────────────────────
@@ -521,20 +788,34 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         creditScore = ICreditScore(_creditScore);
     }
 
-    function setFhieldBuffer(address _fhieldBuffer) external onlyOwner {
-        fhieldBuffer = IFhieldBuffer(_fhieldBuffer);
+    function setPhoenixProgram(address _phoenixProgram) external onlyOwner {
+        phoenixProgram = IPhoenixProgram(_phoenixProgram);
     }
 
     function setInterestRateStrategy(address _strategy) external onlyOwner {
         interestRateStrategy = IInterestRateStrategy(_strategy);
     }
 
-    // ─── INTERNAL: fhield Relief ─────────────────────────────────────────
+    function setMaxSweepBatchSize(uint256 _max) external onlyOwner {
+        require(_max > 0 && _max <= 10, "Invalid batch size");
+        maxSweepBatchSize = _max;
+    }
 
-    function _triggerFhieldRelief(address asset, uint256 amount) internal {
-        uint256 reliefShare = fhieldBuffer.getReliefShare(asset, amount);
+    function setKeeperBounty(uint256 _bountyPerUser) external onlyOwner {
+        keeperBountyPerUser = _bountyPerUser;
+    }
+
+    function depositKeeperBounty(address asset, uint256 amount) external onlyOwner {
+        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
+        keeperBountyReserve[asset] += amount;
+    }
+
+    // ─── INTERNAL: Phoenix Relief ────────────────────────────────────────
+
+    function _triggerPhoenixRelief(address liquidatedUser, uint256 penaltyAmount) internal {
+        uint256 reliefShare = phoenixProgram.getReliefShare(liquidatedUser, penaltyAmount);
         if (reliefShare > 0) {
-            fhieldBuffer.onLiquidation(asset, reliefShare);
+            phoenixProgram.onLiquidation(liquidatedUser, reliefShare);
         }
     }
 
@@ -690,6 +971,25 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
     }
 
     // ─── INTERNAL: Helpers ───────────────────────────────────────────────
+
+    function _pairKey(address col, address debt) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(col, debt));
+    }
+
+    function _accrueAllReserves() internal {
+        uint256 count = assetConfig.getAssetCount();
+        for (uint256 i = 0; i < count; i++) {
+            _reserves[assetConfig.assetList(i)].accrueInterest();
+        }
+    }
+
+    function _updateRatesForAsset(address asset) internal {
+        uint256 rf = _getReserveFactorRay(asset);
+        _reserves[asset].updateRates(
+            totalDeposits[asset], totalBorrows[asset],
+            interestRateStrategy, rf
+        );
+    }
 
     function _getReserveFactorRay(address asset) internal view returns (uint256) {
         uint256 rfBPS = assetConfig.getAsset(asset).reserveFactor;

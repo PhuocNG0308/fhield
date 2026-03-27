@@ -53,6 +53,9 @@ Tests the full lending protocol:
 - Withdraw with health verification
 - Interest accrual and index growth
 - Liquidation flow
+- **Sweep Liquidations (Stage 1+2)**: batch sweep with correct event emission, empty batch rejection, `maxSweepBatchSize` enforcement, permissionless access
+- **Dutch Auction (Stage 3)**: reject operations when no active auction, correct auction constants (`AUCTION_DURATION`, `AUCTION_START_PREMIUM`, `AUCTION_FLOOR`)
+- **Buffer Model Constants**: `CLOSE_FACTOR`, `maxSweepBatchSize`, keeper bounty configuration, insurance fund deposits
 
 ## Testing with FHE Mock
 

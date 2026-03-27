@@ -5,7 +5,7 @@ title: Modules
 
 # Modules
 
-fhield includes two **stub modules** that serve as extension points for future features. Both currently return neutral values (0%) but define the interfaces for credit scoring and liquidation relief.
+fhield includes **stub modules** that serve as extension points for future features, plus an **on-chain insurance fund** and **keeper bounty system** integrated directly into `TrustLendPool`.
 
 ## CreditScoreStub
 
@@ -41,7 +41,7 @@ euint64 collateralValue = _computeEncryptedCollateralValue(msg.sender, ltvBoost)
 
 ---
 
-## FhieldBufferStub
+## FhieldBufferStub (Legacy Relief)
 
 **Implements**: `IFhieldBuffer`
 
@@ -58,22 +58,101 @@ interface IFhieldBuffer {
 
 ### Current Behavior
 
-`getReliefShare()` returns `0` — no relief for any user.
+`getReliefShare()` returns `0` — no relief for any user. This is used by the legacy `executeLiquidation()` path.
 
-### Future Vision
+---
 
-| Function | Purpose |
-|----------|---------|
-| `getReliefShare` | Calculate subsidy amount from insurance pool |
-| `onLiquidation` | Execute relief payment, emit events, update user score |
+## PhoenixProgram (Relief Hook)
 
-**Integration point** in `TrustLendPool._triggerFhieldRelief()`:
+**Implements**: `IPhoenixProgram`
+
+The Phoenix Program is the protocol's subsidy mechanism for liquidated users — it can reduce the effective penalty by redirecting a portion of the liquidation bonus.
+
+### Interface
+
 ```solidity
-uint256 reliefShare = FhieldBuffer.getReliefShare(borrower, penaltyAmount);
-if (reliefShare > 0) {
-    FhieldBuffer.onLiquidation(borrower, reliefShare);
+interface IPhoenixProgram {
+    function getReliefShare(address liquidatedUser, uint256 penaltyAmount) external view returns (uint256);
+    function onLiquidation(address liquidatedUser, uint256 reliefAmount) external;
 }
 ```
+
+### Integration
+
+Called via `_triggerPhoenixRelief()` during legacy liquidation execution:
+```solidity
+uint256 reliefShare = phoenixProgram.getReliefShare(borrower, penaltyAmount);
+if (reliefShare > 0) {
+    phoenixProgram.onLiquidation(borrower, reliefShare);
+}
+```
+
+---
+
+## Insurance Fund
+
+The protocol maintains a **per-asset insurance reserve** (`insuranceFund[asset]`) directly in `TrustLendPool` to cover bad debt from Dutch Auction shortfalls.
+
+### How It Works
+
+1. **Funding**: Owner deposits via `depositInsurance(asset, amount)`
+2. **Surplus accumulation**: When a Dutch Auction recovers more debt than owed, the surplus is added to `insuranceFund[debtAsset]`
+3. **Bad debt coverage**: When an auction recovers less than owed, `_coverBadDebt()` draws from the insurance fund to absorb the shortfall
+
+```solidity
+function _coverBadDebt(address debtAsset, uint256 shortfall) internal {
+    uint256 covered;
+    if (insuranceFund[debtAsset] >= shortfall) {
+        insuranceFund[debtAsset] -= shortfall;
+        covered = shortfall;
+    } else {
+        covered = insuranceFund[debtAsset];
+        insuranceFund[debtAsset] = 0;
+    }
+    emit BadDebtCovered(debtAsset, shortfall, covered);
+}
+```
+
+### Events
+
+| Event | Description |
+|-------|-------------|
+| `InsuranceDeposited(asset, amount)` | Owner funded the insurance reserve |
+| `BadDebtCovered(asset, shortfall, covered)` | Insurance absorbed (partial or full) shortfall |
+
+---
+
+## Keeper Bounty System
+
+Keepers who call `sweepLiquidations()` are compensated with a **fixed bounty per user actually swept**. Anti-Sybil guards ensure only legitimate borrowers consume bounty:
+
+- **`hasBorrowed` gate**: Only users who have called `borrow()` at least once are swept — empty wallets are skipped
+- **`SWEEP_COOLDOWN` (600s)**: Each user can only be swept once per 10 minutes — prevents repeated bounty claims on the same user
+- Bounty is calculated as `sweptCount * keeperBountyPerUser` where `sweptCount` only includes users that passed both gates
+
+### Configuration
+
+| Function | Access | Description |
+|----------|--------|-------------|
+| `setKeeperBounty(uint256)` | Owner | Set bounty amount per user swept |
+| `depositKeeperBounty(asset, amount)` | Owner | Fund the keeper bounty reserve for an asset |
+
+### How It Works
+
+After processing all users in `sweepLiquidations()`:
+```solidity
+uint256 bounty = swept * keeperBountyPerUser;
+if (bounty > 0 && keeperBountyReserve[debtAsset] >= bounty) {
+    keeperBountyReserve[debtAsset] -= bounty;
+    IERC20(debtAsset).safeTransfer(msg.sender, bounty);
+}
+```
+
+### Events
+
+| Event | Description |
+|-------|-------------|
+| `KeeperBountyPaid(keeper, asset, amount)` | Bounty paid to keeper after sweep |
 
 ---
 

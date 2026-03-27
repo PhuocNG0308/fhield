@@ -47,42 +47,45 @@ Between Step 1 (decrypt request) and Step 2 (execution), there is an MPC decrypt
 sequenceDiagram
     participant Keeper as Keeper
     participant Pool as TrustLendPool
-    participant fhield as FhieldPool
+    participant Buffer as BufferPool (per-pair)
     participant TN as ThresholdNet
     participant Liq as Liquidator
 
     rect rgba(255, 165, 0, 0.08)
-    note over Keeper,Pool: Stage 1 — Blind Batched Sweeping
-    Keeper->>Pool: sweepLiquidations(users[])
-    loop Each user
-        Pool->>Pool: accrueInterest()
+    note over Keeper,Pool: Stage 1+2 — Blind Sweep + Instant Seizure
+    Keeper->>Pool: sweepLiquidations(users[], colAsset, debtAsset)
+    Pool->>Pool: _accrueAllReserves()
+    Pool->>Pool: precompute scaledRatio (includes bonus)
+    loop Each user (max batch size)
         Pool->>Pool: colVal = computeCollateral(user)
         Pool->>Pool: debtVal = computeDebt(user)
         Pool->>Pool: isUnder = FHE.lt(col, debt)
+        Pool->>Pool: FHE.select(isUnder, debt*50%, 0)
+        Pool->>Pool: FHE.select(isUnder, col_to_seize, 0)
+        Pool->>Buffer: Accumulate encrypted debt + collateral
     end
-    Pool-->>Keeper: SweepCompleted(batchId)
-    note right of Pool: Keeper does NOT know who is underwater
+    Pool-->>Keeper: Swept(keeper, colAsset, debtAsset, count)
+    Pool-->>Keeper: KeeperBountyPaid(keeper, asset, bounty)
     end
 
-    rect rgba(220, 50, 50, 0.08)
-    note over Pool,fhield: Stage 2 — Instant Encrypted Seizure
-    Pool->>Pool: FHE.select(isUnder, debt, 0)
-    Pool->>Pool: FHE.select(isUnder, col, 0)
-    Pool->>fhield: Transfer encrypted debt + collateral
-    Pool->>Pool: Reset user balances
-    Pool-->>Pool: PositionsAbsorbed(batchId)
-    note right of fhield: Bad debt absorbed instantly
+    rect rgba(100, 100, 220, 0.08)
+    note over Pool,Buffer: Stage 2b — Buffer Decrypt Request
+    Keeper->>Pool: requestBufferDecrypt(colAsset, debtAsset)
+    Pool->>TN: FHE.decrypt(aggregate collateral)
+    Pool->>TN: FHE.decrypt(aggregate debt)
+    Pool-->>Keeper: BufferDecryptRequested(pairKey)
     end
 
     rect rgba(50, 180, 50, 0.08)
-    note over fhield,Liq: Stage 3 — Bulk Dutch Auction
-    fhield->>TN: FHE.decrypt(aggregateDebt)
-    fhield->>TN: FHE.decrypt(aggregateCol)
-    TN-->>fhield: Plaintext aggregates
-    fhield->>fhield: Start Dutch Auction
-    Liq->>fhield: bid(auctionId)
-    fhield->>fhield: Settle auction
-    fhield-->>Liq: AuctionSettled(collateral)
+    note over Pool,Liq: Stage 3 — Per-Asset Dutch Auction
+    Keeper->>Pool: startDutchAuction(colAsset, debtAsset)
+    TN-->>Pool: Plaintext aggregates
+    Pool->>Pool: Create auction (per collateral-debt pair)
+    Pool-->>Liq: AuctionStarted(pairKey, col, debt)
+    Liq->>Pool: bidDutchAuction(colAsset, debtAsset, amount)
+    Pool-->>Liq: AuctionBid(pairKey, bidder, col, debt)
+    Pool->>Pool: Settlement + Insurance Fund
+    Pool-->>Liq: AuctionSettled(pairKey, recovered, surplus)
     end
 ```
 
@@ -90,108 +93,204 @@ sequenceDiagram
 
 ### Stage 1: Blind Batched Sweeping
 
-Keepers/Bots call `sweepLiquidations(address[] users)` with an arbitrary list of users. The protocol checks each user's health factor entirely in **encrypted space**.
+Keepers/Bots call `sweepLiquidations(users, collateralAsset, debtAsset)` with an arbitrary list of users and a specific collateral-debt pair. The protocol checks each user's health factor entirely in **encrypted space**, then immediately seizes positions into the Buffer Pool.
 
 **Key properties:**
 - Keepers submit batches **blindly** — no need to know who is actually underwater
 - Health checks run entirely in FHE space: `isUndercollateralized = FHE.lt(collateralValue, debtValue)`
 - The `ebool` result for each user is **never decrypted** for the Keeper
-- Keepers can sweep the entire user list periodically (every block, every epoch)
-- The `SweepCompleted` event only emits `batchId` and `userCount` — it does not reveal who was liquidated
+- **Batch size is limited** by `maxSweepBatchSize` (default 3, max 10) to prevent out-of-gas
+- **Anti-Sybil protection**: Only users who have called `borrow()` at least once (`hasBorrowed[user]`) are swept — this prevents Sybil attacks with empty wallets that drain the keeper bounty reserve
+- **Sweep cooldown**: Each user can only be swept once per `SWEEP_COOLDOWN` (600s / 10 min) to prevent repeated bounty claims on the same user
+- Interest accrual and price-ratio computation happen **once** outside the loop (`_accrueAllReserves()` + `scaledRatio`)
+- Collateral seizure correctly includes **liquidation bonus**: `colToSeize = debtToBuffer * debtPrice * (1 + bonus) / colPrice`
+- Keepers receive a **bounty** (`keeperBountyPerUser * sweptCount`) — only paid for users that were actually processed (non-zero borrowers past cooldown)
+- The `Swept` event only emits `keeper`, `colAsset`, `debtAsset`, and `sweptCount` — it does not reveal who was liquidated
 
 ```solidity
-function sweepLiquidations(address[] calldata users) external nonReentrant returns (bytes32 batchId) {
-    batchId = keccak256(abi.encodePacked(block.number, msg.sender, _sweepNonce++));
+function sweepLiquidations(
+    address[] calldata users,
+    address collateralAsset,
+    address debtAsset
+) external nonReentrant {
+    require(users.length > 0 && users.length <= maxSweepBatchSize, "Invalid batch size");
+
+    _accrueAllReserves();
+
+    // Pre-compute price ratio with liquidation bonus (plaintext)
+    uint256 scaledRatio = (debtPrice * (pctPrec + bonus) * LIQUIDATION_PRECISION)
+        / (colPrice * pctPrec);
 
     for (uint256 i = 0; i < users.length; i++) {
-        _accrueAllReserves();
-        euint64 colVal = _computeEncryptedLiquidationCollateralValue(users[i]);
-        euint64 debtVal = _computeEncryptedDebtValue(users[i]);
-        ebool isUnder = FHE.lt(colVal, debtVal);
-        FHE.allowThis(isUnder);
-
-        _pendingSweep[batchId][users[i]] = SweepEntry({
-            isUndercollateralized: isUnder,
-            processed: false
-        });
+        _sweepUser(users[i], collateralAsset, debtAsset, pKey, scaledRatio);
     }
 
-    _sweepBatches[batchId] = SweepBatch({
-        keeper: msg.sender,
-        users: users,
-        timestamp: block.timestamp
-    });
+    // Anti-Sybil: skip non-borrowers and users still in cooldown
+    uint256 swept;
+    for (uint256 i = 0; i < users.length; i++) {
+        if (!hasBorrowed[users[i]]) continue;
+        if (block.timestamp < lastSweptTimestamp[users[i]] + SWEEP_COOLDOWN) continue;
+        lastSweptTimestamp[users[i]] = block.timestamp;
+        _sweepUser(users[i], collateralAsset, debtAsset, pKey, scaledRatio);
+        swept++;
+    }
 
-    emit SweepCompleted(batchId, users.length);
+    // Keeper bounty — only paid for actually swept users
+    uint256 bounty = swept * keeperBountyPerUser;
+    if (bounty > 0 && keeperBountyReserve[debtAsset] >= bounty) {
+        keeperBountyReserve[debtAsset] -= bounty;
+        IERC20(debtAsset).safeTransfer(msg.sender, bounty);
+    }
+
+    emit Swept(msg.sender, collateralAsset, debtAsset, swept);
 }
 ```
 
 ### Stage 2: Instant Encrypted Seizure
 
 :::info Core Innovation
-This is the breakthrough of the fhield Buffer Model. Instead of waiting for decryption to act, the protocol **immediately transfers** debt and collateral into the fhield Buffer Pool **within FHE space** using `FHE.select()`.
+This is the breakthrough of the fhield Buffer Model. Instead of waiting for decryption to act, the protocol **immediately transfers** debt and collateral into the Buffer Pool **within FHE space** using `FHE.select()`. Seizure and detection happen in the same transaction via `_sweepUser()`.
 :::
 
 ```solidity
-// If isUnder = true  → transfer all debt/collateral to fhield Buffer Pool
-// If isUnder = false → transfer 0 (no effect)
-euint64 debtToTransfer = FHE.select(isUnder, userDebt, FHE.asEuint64(0));
-euint64 colToTransfer = FHE.select(isUnder, userCollateral, FHE.asEuint64(0));
+function _sweepUser(
+    address user, address collateralAsset, address debtAsset,
+    bytes32 pKey, uint256 scaledRatio
+) internal {
+    euint64 totalColValue = _computeEncryptedLiquidationCollateralValue(user);
+    euint64 totalDebtValue = _computeEncryptedDebtValue(user);
+    ebool isUnder = FHE.lt(totalColValue, totalDebtValue);
 
-_fhieldDebtPool[asset] = FHE.add(_fhieldDebtPool[asset], debtToTransfer);
-_fhieldColPool[asset] = FHE.add(_fhieldColPool[asset], colToTransfer);
+    euint64 userDebt = _safeDebt(user, debtAsset);
+    euint64 userCol = _safeCollateral(user, collateralAsset);
 
-_debtBalances[user][asset] = FHE.sub(userDebt, debtToTransfer);
-_collateralBalances[user][asset] = FHE.sub(userCollateral, colToTransfer);
+    // 50% of user debt via CLOSE_FACTOR
+    euint64 debtToBuffer = FHELendingMath.divByPlaintext(
+        FHELendingMath.mulByPlaintext(userDebt, CLOSE_FACTOR),
+        CLOSE_FACTOR_PRECISION
+    );
+
+    // Collateral seizure includes liquidation bonus via scaledRatio
+    euint64 colToSeize = FHELendingMath.divByPlaintext(
+        FHELendingMath.mulByPlaintext(debtToBuffer, scaledRatio),
+        LIQUIDATION_PRECISION
+    );
+    colToSeize = FHELendingMath.encryptedMin(colToSeize, userCol);
+
+    // Zero-replacement: healthy users get 0 transferred
+    euint64 actualDebt = FHE.select(isUnder, debtToBuffer, zero);
+    euint64 actualCol = FHE.select(isUnder, colToSeize, zero);
+
+    // Update user balances
+    _debtBalances[user][debtAsset] = FHE.sub(userDebt, actualDebt);
+    _collateralBalances[user][collateralAsset] = FHE.sub(userCol, actualCol);
+
+    // Accumulate into Buffer Pool (keyed by collateral-debt pair)
+    BufferPool storage buf = _bufferPools[pKey];
+    buf.encDebt = FHE.add(buf.encDebt, actualDebt);
+    buf.encCollateral = FHE.add(buf.encCollateral, actualCol);
+}
 ```
 
 **Why no decryption is needed:**
 
-`FHE.select()` operates on ciphertexts — it never needs to know the actual values. If the user is healthy, both `debtToTransfer` and `colToTransfer` are encrypted zeros. If the user is underwater, the entire position moves to the fhield Buffer Pool. **No information is ever leaked.**
+`FHE.select()` operates on ciphertexts — it never needs to know the actual values. If the user is healthy, both transfers are encrypted zeros. If the user is underwater, the correct portion (with bonus) moves to the Buffer Pool. **No information is ever leaked.**
+
+**Correct Liquidation Math:**
+
+Unlike a naive 50% collateral seizure, the protocol computes the correct collateral amount that covers the debt **plus liquidation bonus**:
+
+```
+colToSeize = debtToBuffer × debtPrice × (1 + liquidationBonus) / colPrice
+```
+
+This ensures the Buffer Pool never receives more debt than collateral value — the protocol doesn't lose money on each seizure.
 
 **Benefits:**
 - **Zero latency** between detection and resolution
 - Price cannot drop further while waiting — **eliminates bad debt risk**
 - User positions are reset immediately
+- **Correct economics** — collateral always covers seized debt + bonus
 
 ### Stage 3: Bulk Dutch Auction
 
-The fhield Buffer Pool accumulates multiple liquidated positions over time. When the pool reaches a threshold or on a scheduled basis, the protocol decrypts the **total aggregate** (not individual positions) and opens a Dutch Auction.
+The Buffer Pool accumulates multiple liquidated positions over time, **keyed by collateral-debt pair**. Each pair has its own independent buffer and auction — liquidators bid on a **single collateral type**, not a mixed basket.
 
 ```mermaid
 graph TD
-    subgraph Accumulate["Accumulate in fhield Buffer Pool"]
-        A["Position A"] --> P["fhield Buffer Pool"]
-        B["Position B"] --> P
-        C["Position C"] --> P
+    subgraph Sweep["Stage 1+2 — Accumulate per pair"]
+        A["Alice (WETH/USDC)"] --> P1["Buffer: WETH→USDC"]
+        B["Bob (WETH/USDC)"] --> P1
+        C["Charlie (WBTC/USDC)"] --> P2["Buffer: WBTC→USDC"]
     end
 
-    P -->|"Decrypt aggregate"| D["Total Debt · Total Collateral"]
-    D --> DA["Dutch Auction"]
-    DA -->|"Liquidator bid"| S["Settlement"]
+    subgraph Decrypt["Stage 2b — Request Decrypt"]
+        P1 -->|"requestBufferDecrypt"| D1["FHE.decrypt aggregate"]
+        P2 -->|"requestBufferDecrypt"| D2["FHE.decrypt aggregate"]
+    end
+
+    subgraph Auction["Stage 3 — Per-Asset Dutch Auction"]
+        D1 -->|"startDutchAuction"| DA1["Auction: WETH for USDC"]
+        D2 -->|"startDutchAuction"| DA2["Auction: WBTC for USDC"]
+        DA1 -->|"bidDutchAuction"| S1["Settlement + Insurance"]
+        DA2 -->|"bidDutchAuction"| S2["Settlement + Insurance"]
+    end
 ```
 
-**Dutch Auction Mechanics:**
+**Step 2b: Request Buffer Decrypt**
 
-1. **Starting Price**: Aggregate collateral value × `(1 - INITIAL_DISCOUNT)` — typically starts at ~98% of real value
-2. **Decay**: Price drops by `DUTCH_AUCTION_DECAY_RATE` each block until a buyer appears
-3. **Settlement**: The first liquidator to call `bid()` receives all collateral in the auction, paying the corresponding debt tokens
-4. **Surplus**: If collateral > debt (surplus exists), the remainder flows to the protocol treasury
+Before an auction can start, someone calls `requestBufferDecrypt(collateralAsset, debtAsset)` to trigger MPC decryption of the aggregate buffer for that pair.
+
+```solidity
+function requestBufferDecrypt(address collateralAsset, address debtAsset) external {
+    bytes32 pKey = _pairKey(collateralAsset, debtAsset);
+    BufferPool storage buf = _bufferPools[pKey];
+    PendingAuction storage pa = _pendingAuctions[pKey];
+    require(!pa.pending, "Already pending");
+
+    // Snapshot: move buffer → PendingAuction, reset buffer to 0
+    pa.encCollateral = buf.encCollateral;
+    pa.encDebt = buf.encDebt;
+    pa.pending = true;
+
+    buf.encCollateral = FHE.asEuint64(0);
+    buf.encDebt = FHE.asEuint64(0);
+
+    FHE.decrypt(pa.encCollateral);
+    FHE.decrypt(pa.encDebt);
+}
+```
+
+:::info Snapshot Isolation
+When `requestBufferDecrypt()` is called, the current buffer is **snapshotted** into a `PendingAuction` struct, and the buffer is reset to zero. This means new `sweepLiquidations()` calls can continue accumulating into the buffer while the previous batch is being decrypted — no race condition between sweep and auction.
+:::
+
+**Dutch Auction Mechanics (Per-Asset):**
+
+1. **Start**: `startDutchAuction(colAsset, debtAsset)` reads decrypted aggregates and creates the auction
+2. **Starting Price**: `colPrice × AUCTION_START_PREMIUM / 10000` — starts at **105%** of oracle price
+3. **Decay**: Price decays linearly over `AUCTION_DURATION` (1 hour) from 105% → 80%
+4. **Bidding**: Liquidators call `bidDutchAuction(colAsset, debtAsset, collateralToBuy)` — partial fills supported
+5. **Settlement**: Auction closes when all collateral is sold or duration expires
+6. **Surplus**: If `debtRecovered > debtToRecover`, surplus flows to `insuranceFund`
+7. **Shortfall**: If `debtRecovered < debtToRecover`, insurance fund covers the bad debt via `_coverBadDebt()`
 
 ```
-currentPrice = startPrice × (1 - DUTCH_AUCTION_DECAY_RATE × elapsedBlocks)
+currentPrice = colPrice × (AUCTION_START_PREMIUM - decay) / 10000
+decay = (AUCTION_START_PREMIUM - AUCTION_FLOOR) × elapsed / AUCTION_DURATION
 ```
 
 **Dutch Auction Example:**
 
-| Block | Elapsed | Price (% of collateral value) | Status |
-|-------|---------|-------------------------------|--------|
-| 0 | 0 | 98% | Awaiting bid |
-| 10 | 10 | 97% | Awaiting bid |
-| 50 | 50 | 93% | Awaiting bid |
-| 73 | 73 | **90.7%** | ← Liquidator bids here |
+| Time | Elapsed | Price (% of oracle) | Status |
+|------|---------|---------------------|--------|
+| 0s | 0 | 105% | Slight premium — awaiting bid |
+| 600s | 10min | 100.8% | Decaying |
+| 900s | 15min | 98.75% | ← Liquidator bids here |
+| 1800s | 30min | 92.5% | Decaying |
+| 3600s | 1h | 80% (floor) | Auction closes |
 
-The liquidator pays debt tokens (e.g., \$10,000 USDC) and receives collateral worth \$10,000 / 0.907 ≈ **\$11,025** → profit of ~\$1,025.
+The liquidator pays the debt token amount at the current price, receiving collateral at a discount.
 
 ---
 
@@ -203,9 +302,13 @@ Instead of liquidating individual users (many gas-expensive transactions), liqui
 
 ### 2. Dutch Auction Profit
 
-Price starts near market value and decays over time. Liquidators "lock in" at a price point where they see profit. Waiting longer means cheaper prices, but risks being outbid → creating **natural game theory** that drives fast settlement.
+Price starts at 105% (just above oracle) and decays to 80% floor over 1 hour. The low starting premium eliminates the ~30 minute dead zone that a 150% start would create, so liquidators bid sooner and bad debt is settled faster. Partial fills are supported, so liquidators can buy exactly the amount they want → creating **natural game theory** that drives fast settlement.
 
-### 3. MEV-Free by Design
+### 3. Per-Asset Isolation
+
+Each auction sells a **single collateral type** against a **single debt type** (e.g., WETH→USDC auction, WBTC→USDC auction). Liquidators never have to buy mixed baskets — this maximizes participation and minimizes risk-adjusted discount demands.
+
+### 4. MEV-Free by Design
 
 In the legacy model, liquidators compete via gas wars and MEV to "snipe" liquidations. In the fhield Buffer Model, the Dutch Auction **eliminates MEV** because:
 - Price decays uniformly — there is no "optimal moment" to frontrun
@@ -218,9 +321,11 @@ In the legacy model, liquidators compete via gas wars and MEV to "snipe" liquida
 |---|---|---|
 | Gas per liquidation | ~300k-500k gas | ~150k gas (amortized) |
 | Must identify user? | Yes | No |
-| Profit | Fixed bonus (5%) | Dutch Auction dynamic (3-15%) |
+| Profit | Fixed bonus (5%) | Dutch Auction dynamic (premium→floor) |
 | MEV risk | High | Near zero |
 | Capital efficiency | Low (many small txs) | High (one large tx) |
+| Keeper compensation | None (keeper pays gas) | Bounty per user swept |
+| Bad debt handling | Liquidator bears risk | Insurance Fund absorbs shortfall |
 
 ---
 
@@ -260,12 +365,16 @@ In the legacy model, liquidators compete via gas wars and MEV to "snipe" liquida
 | Parameter | Value | Unit | Description |
 |---|---|---|---|
 | `CLOSE_FACTOR` | 5000 | BPS (50%) | Maximum portion of total debt that can be liquidated per sweep |
-| `LIQUIDATION_THRESHOLD` | Per-asset (e.g., 8000) | BPS (80%) | Health factor trigger for liquidation |
-| `LIQUIDATION_BONUS` | Per-asset (e.g., 500) | BPS (5%) | Collateral bonus for the protocol (feeds into fhield Buffer Pool) |
-| `DUTCH_AUCTION_DECAY_RATE` | 10 | BPS/block (0.1%) | Price decay rate per block |
-| `DUTCH_AUCTION_MIN_PRICE` | 8000 | BPS (80%) | Floor price — auction halts at this level |
-| `SWEEP_COOLDOWN` | 10 | blocks | Minimum interval between sweeps for the same user |
-| `FHIELD_AUCTION_TRIGGER` | Governance | — | Threshold to trigger auction (aggregate size or time-based) |
+| `LIQUIDATION_THRESHOLD` | Per-asset (e.g., 8500) | BPS (85%) | Health factor trigger for liquidation |
+| `LIQUIDATION_BONUS` | Per-asset (e.g., 500) | BPS (5%) | Extra collateral seized to incentivize liquidation |
+| `maxSweepBatchSize` | 3 (configurable, max 10) | users | Maximum users per `sweepLiquidations()` call — prevents out-of-gas |
+| `keeperBountyPerUser` | Configurable | wei | Fixed bounty paid to keeper per user swept (from `keeperBountyReserve`) |
+| `AUCTION_DURATION` | 3600 | seconds (1h) | Duration of Dutch Auction price decay |
+| `AUCTION_START_PREMIUM` | 10500 | BPS (105%) | Starting auction price as % of oracle price |
+| `AUCTION_FLOOR` | 8000 | BPS (80%) | Floor price — auction stops decaying at this level |
+| `PRICE_PRECISION` | 1e18 | — | High-precision scaling for `scaledRatio` to prevent integer division truncation |
+| `SWEEP_COOLDOWN` | 600 | seconds (10 min) | Minimum interval between sweeps for the same user |
+| `insuranceFund` | Per-asset | wei | Protocol reserve to cover bad debt after auction shortfalls |
 
 ### Precision
 
@@ -273,10 +382,21 @@ All BPS parameters use `PERCENTAGE_PRECISION = 10000`. Interest rate indices use
 
 ### LTV vs. Liquidation Threshold
 
+```mermaid
+block-beta
+  columns 20
+  safe["✦ Max LTV — 75%"]:15
+  buf["⚠"]:1
+  liq["☠ Liquidation"]:4
+
+  style safe fill:rgba(10,217,220,0.12),stroke:#0AD9DC,stroke-width:2px,color:#0AD9DC
+  style buf fill:rgba(234,179,8,0.2),stroke:#eab308,stroke-width:2px,color:#eab308
+  style liq fill:rgba(239,68,68,0.12),stroke:#ef4444,stroke-width:2px,color:#ef4444
 ```
-|-------- LTV (75%) --------|--- Buffer (5%) ---|
-                             |-- Liq. Threshold (80%) --|
-```
+
+$$
+\underbrace{0\% \longrightarrow 75\%}_{\textsf{Max LTV}} \quad \underbrace{75\% \to 80\%}_{\textsf{Buffer (5\%)}} \quad \underbrace{80\% \to 100\%}_{\color{red}\textsf{Liquidation Threshold}}
+$$
 
 - **LTV** (e.g., 75%): Maximum borrowing power as a percentage of collateral value
 - **Liquidation Threshold** (e.g., 80%): Position is flagged as underwater when collateral value / debt value falls below this
@@ -292,82 +412,110 @@ All BPS parameters use `PERCENTAGE_PRECISION = 10000`. Interest rate indices use
 - **Bob**: 500 WETH collateral, \$300 DAI debt (healthy)
 - **Charlie**: 2 ETH collateral (price \$400 → \$800, threshold 80% → \$640), debt \$650
 
-### Stage 1: Keeper sweeps [Alice, Bob, Charlie]
+### Stage 1+2: Keeper sweeps [Alice, Bob, Charlie] for WETH→USDC
 
 ```
-Keeper → sweepLiquidations([Alice, Bob, Charlie])
+Keeper → sweepLiquidations([Alice, Bob, Charlie], WETH, USDC)
+
+_accrueAllReserves() -- one-time
+scaledRatio = debtPrice * (10000 + 500) / colPrice  -- with 5% bonus
 
 Alice:   colVal=$800 (encrypted), debtVal=$850 (encrypted) → FHE.lt → true  (encrypted)
 Bob:     colVal=$400 (encrypted), debtVal=$300 (encrypted) → FHE.lt → false (encrypted)
 Charlie: colVal=$640 (encrypted), debtVal=$650 (encrypted) → FHE.lt → true  (encrypted)
 
-→ Event: SweepCompleted(batchId=0x..., userCount=3)
+→ Event: Swept(keeper, WETH, USDC, 3)
+→ Event: KeeperBountyPaid(keeper, USDC, bounty)
 ```
 
 The Keeper **does not know** Alice and Charlie are underwater. They only know "3 users were swept."
 
-### Stage 2: Instant Seizure (CLOSE_FACTOR = 50%)
+### Stage 2: Instant Seizure (CLOSE_FACTOR = 50%, Bonus = 5%)
 
 ```
 Protocol (internal, encrypted):
-  Alice:   FHE.select(true, debt * 50% = $425, 0) → $425 debt to fhield Buffer Pool
-           FHE.select(true, col * 50% = 500 USDC, 0) → 500 USDC to fhield Buffer Pool
-           Alice retains: $425 debt, 500 USDC collateral (still underwater)
+  Alice:   debtToBuffer = $850 * 50% = $425
+           colToSeize = $425 * 1.05 = $446.25 (capped at user's col)
+           → $425 debt + $446.25 col to Buffer[WETH→USDC]
+           Alice retains: $425 debt, remaining collateral
+
   Bob:     FHE.select(false, ...) → $0 → unaffected
-  Charlie: FHE.select(true, debt * 50% = $325, 0) → $325 debt to fhield Buffer Pool
-           FHE.select(true, col * 50% = 1 ETH, 0) → 1 ETH to fhield Buffer Pool
-           Charlie retains: $325 debt, 1 ETH collateral
 
-fhield Buffer Pool now holds (encrypted):
-  Debt:       $750 (425 + 325)
-  Collateral: 500 USDC + 1 ETH ($900 total)
+  Charlie: debtToBuffer = $650 * 50% = $325
+           colToSeize = $325 * 1.05 = $341.25
+           → $325 debt + $341.25 col to Buffer[WETH→USDC]
+           Charlie retains: $325 debt, remaining collateral
+
+Buffer Pool [WETH→USDC] now holds (encrypted):
+  Debt:       $750 ($425 + $325)
+  Collateral: $787.50 ($446.25 + $341.25) -- collateral > debt ✔️
 ```
 
-### Stage 3: Dutch Auction
+### Stage 3: Per-Asset Dutch Auction (WETH for USDC)
 
 ```
-Protocol decrypts AGGREGATE:
+requestBufferDecrypt(WETH, USDC) → MPC decryption
+startDutchAuction(WETH, USDC)
+
+Protocol decrypts AGGREGATE for WETH→USDC pair:
   Total debt       = $750
-  Total collateral = $900
+  Total collateral = $787.50 worth of WETH
 
-Dutch Auction:
-  Starting price = $900 × 0.98 = $882
-  Block 0:   $882 (98.0%)
-  Block 20:  $864 (96.0%)
-  Block 40:  $846 (94.0%)  ← Liquidator bids here
+Dutch Auction (1 hour decay):
+  t=0:     150% of oracle = premium price
+  t=30m:   115% of oracle
+  t=45m:   97.5% of oracle ← Liquidator bids here
+  t=1h:    80% of oracle (floor)
 
-Liquidator pays $750 in debt tokens
-Liquidator receives collateral worth $846
-Profit  = $846 - $750 = $96 (12.8% return)
-Surplus = $900 - $846 = $54 → protocol treasury
+Liquidator calls bidDutchAuction(WETH, USDC, allCollateral)
+  Pays $750 worth of USDC at 97.5% rate
+  Receives WETH collateral at discount
+
+Settlement:
+  debtRecovered = $750+
+  surplus > 0 → flows to insuranceFund[USDC]
+  Event: AuctionSettled(pairKey, recovered, surplus)
 ```
 
 ---
 
 ## Relationship to Current Smart Contracts
 
-The existing codebase already provides the primitives required for the fhield Buffer Model:
+The existing codebase provides all components for the fhield Buffer Model:
 
 | Component | Status | Role in fhield Buffer Model |
 |---|---|---|
-| `TrustLendPool.sweepLiquidations()` | ✅ Implemented | Stage 1+2 — blind batched health check + instant encrypted seizure |
-| `TrustLendPool.requestAuction()` | ✅ Implemented | Stage 3a — triggers decrypt of fhield pool aggregates |
-| `TrustLendPool.startAuction()` | ✅ Implemented | Stage 3b — creates Dutch Auction with decrypted values |
-| `TrustLendPool.bid()` | ✅ Implemented | Stage 3c — liquidator bids at current Dutch Auction price |
+| `TrustLendPool.sweepLiquidations()` | ✅ Implemented | Stage 1+2 — blind sweep + instant seizure with correct math |
+| `TrustLendPool.requestBufferDecrypt()` | ✅ Implemented | Stage 2b — triggers aggregate decrypt for a collateral-debt pair |
+| `TrustLendPool.startDutchAuction()` | ✅ Implemented | Stage 3a — creates per-asset Dutch Auction from decrypted values |
+| `TrustLendPool.bidDutchAuction()` | ✅ Implemented | Stage 3b — liquidator buys collateral at decaying price (partial fills) |
+| `TrustLendPool.closeDutchAuction()` | ✅ Implemented | Stage 3c — manual close after duration expires |
+| `TrustLendPool.getAuctionPrice()` | ✅ Implemented | View — current auction price with linear decay |
+| `_sweepUser()` | ✅ Internal | Per-user FHE seizure logic with correct bonus math |
+| `_closeDutchAuction()` | ✅ Internal | Surplus/shortfall settlement + insurance fund |
+| `_coverBadDebt()` | ✅ Internal | Insurance fund draws for auction shortfalls |
 | `FHE.select()` (Zero-replacement) | ✅ Core pattern | Stage 2 — encrypted seizure without decryption |
-| `IFhieldBuffer` | ✅ Interface defined | Relief hook — extensible for future insurance/treasury modules |
-| `FhieldBufferStub` | ✅ Stub (0%) | Placeholder — returns 0% relief share |
-| `_fhieldDebtPool` / `_fhieldColPool` | ✅ Implemented | Encrypted buffer pool state per asset |
+| `BufferPool` struct | ✅ Per-pair | `encCollateral` + `encDebt` (no flag — snapshot moves to `PendingAuction`) |
+| `PendingAuction` struct | ✅ Per-pair | Snapshot of buffer during decrypt — isolates sweep from auction |
+| `Auction` struct | ✅ Per-pair | Full auction state with partial-fill support |
+| `insuranceFund` | ✅ Per-asset | Safety module — absorbs bad debt from auction shortfalls |
+| `keeperBountyPerUser` / `keeperBountyReserve` | ✅ Configurable | Keeper incentive system — bounty per user swept |
+| `maxSweepBatchSize` | ✅ Configurable (3) | Gas protection — limits FHE operations per transaction |
 | `CLOSE_FACTOR` (50%) | ✅ Configured | Each sweep seizes at most 50% of an underwater user's position |
-| `DUTCH_AUCTION_DECAY_RATE` (10 BPS/block) | ✅ Configured | Price decay per block during auction |
-| `DUTCH_AUCTION_MIN_PRICE` (80%) | ✅ Configured | Floor price — prevents auction from going below 80% |
+| `AUCTION_DURATION` (1h) | ✅ Configured | Price decay window for Dutch Auction |
+| `AUCTION_START_PREMIUM` (105%) | ✅ Configured | Starting premium over oracle price |
+| `AUCTION_FLOOR` (80%) | ✅ Configured | Minimum auction price |
 | `liquidationThreshold` | ✅ Per-asset | Trigger for the encrypted `FHE.lt` health check |
+| `liquidationBonus` | ✅ Per-asset | Extra collateral seized (included in `scaledRatio`) |
 | Constant-time loops | ✅ Pattern used | Protects Stage 1 from timing analysis |
+| `IPhoenixProgram` | ✅ Interface | Relief hook — extensible for future subsidy modules |
+| `depositInsurance()` | ✅ Owner function | Fund insurance reserve per asset |
+| `depositKeeperBounty()` | ✅ Owner function | Fund keeper bounty reserve per asset |
 
 ### Architecture Status
 
 ```
-✅ Phase 1 (legacy):   liquidationCall() + executeLiquidation() → REMOVED
-✅ Phase 2 (current):  sweepLiquidations() + fhield Buffer Pool + Dutch Auction → IMPLEMENTED
+✅ Phase 1 (legacy):   liquidationCall() + executeLiquidation() — still available as fallback
+✅ Phase 2 (current):  sweepLiquidations() + Buffer Pool + Dutch Auction — IMPLEMENTED
 🔄 Phase 3 (future):   Automated Keeper network + DAO-governed auction params
 ```

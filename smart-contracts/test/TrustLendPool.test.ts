@@ -220,127 +220,147 @@ describe("TrustLendPool", function () {
       await pool.connect(owner).setCreditScore(csAddr);
     });
 
-    it("should allow owner to set new FhieldBuffer module", async function () {
+    it("should allow owner to set new PhoenixProgram module", async function () {
       const { pool, owner, fhieldBuffer } = await deployFixture();
       const addr = await fhieldBuffer.getAddress();
-      await pool.connect(owner).setFhieldBuffer(addr);
+      await pool.connect(owner).setPhoenixProgram(addr);
     });
   });
 
   describe("Sweep Liquidations (Stage 1+2)", function () {
-    it("should emit SweepCompleted with correct userCount", async function () {
-      const { alice, bob, keeper, usdc, pool } = await deployFixture();
+    it("should emit Swept and skip non-borrowers", async function () {
+      const { alice, bob, keeper, usdc, weth, pool } = await deployFixture();
       const usdcAddr = await usdc.getAddress();
+      const wethAddr = await weth.getAddress();
       const poolAddr = await pool.getAddress();
 
       await usdc.connect(alice).approve(poolAddr, BigInt(1000e6));
       await pool.connect(alice).deposit(usdcAddr, BigInt(1000e6));
 
+      // alice and bob have NOT borrowed, so hasBorrowed is false
+      // sweep should skip them and emit Swept with 0 swept
       const tx = await pool.connect(keeper).sweepLiquidations(
-        [await alice.getAddress(), await bob.getAddress()]
+        [await alice.getAddress(), await bob.getAddress()],
+        wethAddr,
+        usdcAddr
       );
 
-      await expect(tx).to.emit(pool, "SweepCompleted");
+      await expect(tx).to.emit(pool, "Swept").withArgs(
+        await keeper.getAddress(), wethAddr, usdcAddr, 0n
+      );
     });
 
-    it("should accept empty user list", async function () {
-      const { keeper, pool } = await deployFixture();
+    it("should reject empty user list", async function () {
+      const { keeper, usdc, weth, pool } = await deployFixture();
 
-      const tx = await pool.connect(keeper).sweepLiquidations([]);
-      await expect(tx).to.emit(pool, "SweepCompleted");
+      await expect(
+        pool.connect(keeper).sweepLiquidations(
+          [],
+          await weth.getAddress(),
+          await usdc.getAddress()
+        )
+      ).to.be.revertedWith("Invalid batch size");
     });
 
-    it("should update lastSweepBlock for swept users", async function () {
-      const { alice, keeper, usdc, pool } = await deployFixture();
-      const usdcAddr = await usdc.getAddress();
-      const poolAddr = await pool.getAddress();
-      const aliceAddr = await alice.getAddress();
+    it("should enforce maxSweepBatchSize", async function () {
+      const { alice, keeper, usdc, weth, pool, owner } = await deployFixture();
 
-      await usdc.connect(alice).approve(poolAddr, BigInt(1000e6));
-      await pool.connect(alice).deposit(usdcAddr, BigInt(1000e6));
-
-      await pool.connect(keeper).sweepLiquidations([aliceAddr]);
-
-      expect(await pool.lastSweepBlock(aliceAddr)).to.be.gt(0);
+      expect(await pool.maxSweepBatchSize()).to.equal(3n);
+      await pool.connect(owner).setMaxSweepBatchSize(2);
+      expect(await pool.maxSweepBatchSize()).to.equal(2n);
     });
 
     it("should allow anyone to call sweepLiquidations", async function () {
-      const { alice, bob, usdc, pool } = await deployFixture();
+      const { alice, bob, usdc, weth, pool } = await deployFixture();
       const usdcAddr = await usdc.getAddress();
+      const wethAddr = await weth.getAddress();
       const poolAddr = await pool.getAddress();
 
       await usdc.connect(alice).approve(poolAddr, BigInt(1000e6));
       await pool.connect(alice).deposit(usdcAddr, BigInt(1000e6));
 
-      await pool.connect(bob).sweepLiquidations([await alice.getAddress()]);
+      await pool.connect(bob).sweepLiquidations(
+        [await alice.getAddress()],
+        wethAddr,
+        usdcAddr
+      );
+    });
+
+    it("should have SWEEP_COOLDOWN constant", async function () {
+      const { pool } = await deployFixture();
+      expect(await pool.SWEEP_COOLDOWN()).to.equal(600n);
+    });
+
+    it("should track hasBorrowed flag", async function () {
+      const { alice, pool } = await deployFixture();
+      expect(await pool.hasBorrowed(await alice.getAddress())).to.equal(false);
     });
   });
 
   describe("Dutch Auction (Stage 3)", function () {
-    it("should emit AuctionRequested on requestAuction", async function () {
-      const { alice, keeper, usdc, pool } = await deployFixture();
-      const usdcAddr = await usdc.getAddress();
-      const poolAddr = await pool.getAddress();
-
-      await usdc.connect(alice).approve(poolAddr, BigInt(1000e6));
-      await pool.connect(alice).deposit(usdcAddr, BigInt(1000e6));
-      await pool.connect(keeper).sweepLiquidations([await alice.getAddress()]);
-
-      const tx = await pool.connect(keeper).requestAuction(usdcAddr, usdcAddr);
-      await expect(tx).to.emit(pool, "AuctionRequested");
-    });
-
-    it("should reject startAuction for non-existent auction", async function () {
-      const { keeper, pool } = await deployFixture();
-      const fakeId = hre.ethers.keccak256(hre.ethers.toUtf8Bytes("fake"));
+    it("should reject startDutchAuction when no decrypt pending", async function () {
+      const { keeper, usdc, weth, pool } = await deployFixture();
       await expect(
-        pool.connect(keeper).startAuction(fakeId)
-      ).to.be.revertedWith("Auction not found");
+        pool.connect(keeper).startDutchAuction(
+          await weth.getAddress(),
+          await usdc.getAddress()
+        )
+      ).to.be.revertedWith("No decrypt pending");
     });
 
-    it("should reject bid on non-started auction", async function () {
-      const { alice, keeper, usdc, pool } = await deployFixture();
-      const usdcAddr = await usdc.getAddress();
-      const poolAddr = await pool.getAddress();
-
-      await usdc.connect(alice).approve(poolAddr, BigInt(1000e6));
-      await pool.connect(alice).deposit(usdcAddr, BigInt(1000e6));
-      await pool.connect(keeper).sweepLiquidations([await alice.getAddress()]);
-
-      const tx = await pool.connect(keeper).requestAuction(usdcAddr, usdcAddr);
-      const receipt = await tx.wait();
-      const event = receipt?.logs.find(
-        (l: any) => l.fragment?.name === "AuctionRequested"
-      );
-      if (event) {
-        const auctionId = (event as any).args[0];
-        await expect(
-          pool.connect(keeper).bid(auctionId)
-        ).to.be.revertedWith("Invalid auction");
-      }
+    it("should reject bidDutchAuction when no active auction", async function () {
+      const { keeper, usdc, weth, pool } = await deployFixture();
+      await expect(
+        pool.connect(keeper).bidDutchAuction(
+          await weth.getAddress(),
+          await usdc.getAddress(),
+          100
+        )
+      ).to.be.revertedWith("No active auction");
     });
 
-    it("should return correct auction price with decay", async function () {
+    it("should reject closeDutchAuction when no active auction", async function () {
+      const { keeper, usdc, weth, pool } = await deployFixture();
+      await expect(
+        pool.connect(keeper).closeDutchAuction(
+          await weth.getAddress(),
+          await usdc.getAddress()
+        )
+      ).to.be.revertedWith("No active auction");
+    });
+
+    it("should have correct auction constants", async function () {
       const { pool } = await deployFixture();
-      const DECAY_RATE = await pool.DUTCH_AUCTION_DECAY_RATE();
-      const START_PRICE = await pool.DUTCH_AUCTION_START_PRICE();
-      const MIN_PRICE = await pool.DUTCH_AUCTION_MIN_PRICE();
-
-      expect(DECAY_RATE).to.equal(10n);
-      expect(START_PRICE).to.equal(9800n);
-      expect(MIN_PRICE).to.equal(8000n);
+      expect(await pool.AUCTION_DURATION()).to.equal(3600n);
+      expect(await pool.AUCTION_START_PREMIUM()).to.equal(10500n);
+      expect(await pool.AUCTION_FLOOR()).to.equal(8000n);
     });
   });
 
-  describe("Auction Constants", function () {
+  describe("Buffer Model Constants", function () {
     it("should have correct CLOSE_FACTOR", async function () {
       const { pool } = await deployFixture();
       expect(await pool.CLOSE_FACTOR()).to.equal(5000n);
     });
 
-    it("should have correct SWEEP_COOLDOWN", async function () {
+    it("should have correct maxSweepBatchSize", async function () {
       const { pool } = await deployFixture();
-      expect(await pool.SWEEP_COOLDOWN()).to.equal(10n);
+      expect(await pool.maxSweepBatchSize()).to.equal(3n);
+    });
+
+    it("should allow owner to configure keeper bounty", async function () {
+      const { pool, owner, usdc } = await deployFixture();
+      await pool.connect(owner).setKeeperBounty(BigInt(1e6));
+      expect(await pool.keeperBountyPerUser()).to.equal(BigInt(1e6));
+    });
+
+    it("should allow owner to deposit insurance", async function () {
+      const { pool, owner, usdc } = await deployFixture();
+      const usdcAddr = await usdc.getAddress();
+      await usdc.mint(await owner.getAddress(), BigInt(10000e6));
+      await usdc.connect(owner).approve(await pool.getAddress(), BigInt(10000e6));
+      await pool.connect(owner).depositInsurance(usdcAddr, BigInt(10000e6));
+      expect(await pool.insuranceFund(usdcAddr)).to.equal(BigInt(10000e6));
     });
   });
 });
