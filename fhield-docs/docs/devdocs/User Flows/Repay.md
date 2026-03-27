@@ -12,20 +12,20 @@ Repaying reduces the user's encrypted debt. This is a **single-step** operation 
 ```mermaid
 sequenceDiagram
     participant User
-    participant TrustLendPool
-    participant ERC20 Token
+    participant Pool as TrustLendPool
+    participant ERC20 as ERC20 Token
 
-    User->>TrustLendPool: repay(asset, 30)
-    TrustLendPool->>TrustLendPool: accrueInterest()
-    TrustLendPool->>ERC20 Token: transferFrom(user, 30)
-    TrustLendPool->>TrustLendPool: normalizeDebt(user, asset)
-    TrustLendPool->>TrustLendPool: actualRepay = min(30, debt)
-    TrustLendPool->>TrustLendPool: _debtBalances -= actualRepay
-    TrustLendPool->>TrustLendPool: FHE.allowThis(newDebt)
-    TrustLendPool->>TrustLendPool: FHE.allow(newDebt, user)
-    TrustLendPool->>TrustLendPool: totalBorrows -= min(30, ...)
-    TrustLendPool->>TrustLendPool: updateRates()
-    TrustLendPool-->>User: Repay event
+    User->>Pool: repay(asset, 30)
+    Pool->>Pool: accrueInterest()
+    Pool->>ERC20: transferFrom(user, 30)
+    Pool->>Pool: normalizeDebt(user, asset)
+    Pool->>Pool: actualRepay = min(30, debt)
+    Pool->>Pool: debtBalances -= actualRepay
+    Pool->>Pool: FHE.allowThis(newDebt)
+    Pool->>Pool: FHE.allow(newDebt, user)
+    Pool->>Pool: totalBorrows -= repaid
+    Pool->>Pool: updateRates()
+    Pool-->>User: Repay event
 ```
 
 ## Steps

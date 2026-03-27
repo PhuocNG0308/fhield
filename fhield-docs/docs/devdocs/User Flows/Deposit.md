@@ -12,19 +12,19 @@ Depositing adds collateral to the lending pool. The user supplies a plaintext ER
 ```mermaid
 sequenceDiagram
     participant User
-    participant TrustLendPool
-    participant ERC20 Token
+    participant Pool as TrustLendPool
+    participant ERC20 as ERC20 Token
 
-    User->>TrustLendPool: deposit(asset, 100)
-    TrustLendPool->>ERC20 Token: transferFrom(user, 100)
-    TrustLendPool->>TrustLendPool: accrueInterest()
-    TrustLendPool->>TrustLendPool: encrypt: euint64(100)
-    TrustLendPool->>TrustLendPool: add to _collateralBalances
-    TrustLendPool->>TrustLendPool: FHE.allowThis(newBalance)
-    TrustLendPool->>TrustLendPool: FHE.allow(newBalance, user)
-    TrustLendPool->>TrustLendPool: totalDeposits += 100
-    TrustLendPool->>TrustLendPool: updateRates()
-    TrustLendPool-->>User: Deposit event
+    User->>Pool: deposit(asset, 100)
+    Pool->>ERC20: transferFrom(user, 100)
+    Pool->>Pool: accrueInterest()
+    Pool->>Pool: encrypt: euint64(100)
+    Pool->>Pool: add to collateralBalances
+    Pool->>Pool: FHE.allowThis(newBalance)
+    Pool->>Pool: FHE.allow(newBalance, user)
+    Pool->>Pool: totalDeposits += 100
+    Pool->>Pool: updateRates()
+    Pool-->>User: Deposit event
 ```
 
 ## Steps

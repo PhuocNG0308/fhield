@@ -11,31 +11,33 @@ fhield (TrustLend) is an **encrypted lending protocol** that mirrors the AAVE V3
 
 ```mermaid
 graph TD
-    subgraph Frontend["🖥️ Frontend"]
-        FE["Express.js + EJS + Ethers.js<br/>Dashboard · Lend · Borrow<br/>Portfolio · Markets"]
+    subgraph Frontend["Frontend"]
+        FE["Express.js · EJS · Ethers.js"]
     end
 
     FE -->|"JSON-RPC"| Core
 
-    subgraph Contracts["📜 Smart Contracts"]
-        Core["TrustLendPool — Core<br/>deposit · borrow · repay<br/>withdraw · liquidation"]
+    subgraph Contracts["Smart Contracts"]
+        Core["TrustLendPool"]
         AC["AssetConfig"]
         RL["ReserveLogic"]
         OR["PriceOracle"]
         FW["FHERC20Wrapper"]
-        IRS["Interest Rate Strategy<br/>+ CreditScoreStub + PhoenixStub"]
+        IRS["InterestRateStrategy"]
+        DCS["CreditScoreStub"]
+        FBS["FhieldBufferStub"]
         Core --> AC & RL & OR & FW
-        AC --> IRS
+        AC --> IRS & DCS & PHX
     end
 
-    Core -->|"FHE Operations"| TM
+    Core -->|"FHE Ops"| TM
 
-    subgraph CoFHE["🔐 Fhenix CoFHE Layer"]
+    subgraph CoFHE["Fhenix CoFHE"]
         TM["TaskManager"]
         SL["Slim Listener"]
         FHEOS["fheOS"]
         TN["Threshold Network"]
-        REG["ACL Registry · CT Registry<br/>Plaintext Storage"]
+        REG["ACL + CT Registry"]
         TM --> SL --> FHEOS --> TN
     end
 ```
@@ -62,13 +64,13 @@ Borrow, Withdraw and Liquidation use a **two-step async** pattern because they r
 ```mermaid
 graph LR
     subgraph Step1["Step 1 — Request"]
-        A["borrow()"] --> B["Encrypted\nhealth check"] --> C["FHE.select()\ncaps amount"] --> D["FHE.decrypt()\ntriggered"]
+        A["borrow()"] --> B["Health check"] --> C["FHE.select()"] --> D["FHE.decrypt()"]
     end
 
-    D -.->|"⏳ MPC decryption"| E
+    D -.->|"MPC decrypt"| E
 
     subgraph Step2["Step 2 — Claim"]
-        E["claimBorrow()"] --> F["Read plaintext\namount"] --> G["Transfer ERC20\n& update totals"]
+        E["claimBorrow()"] --> F["Read result"] --> G["Transfer ERC20"]
     end
 ```
 
@@ -95,3 +97,30 @@ graph LR
 4. **ACL Enforcement**: `FHE.allowThis()` after every encrypted mutation; `FHE.allow(user)` for owner access
 5. **Threshold Decryption**: MPC network prevents single point of failure in key management
 6. **No Branching on Encrypted**: Uses `FHE.select()` instead of `if/else` — encrypted values can't be evaluated as booleans
+
+## Novel FHE-Native Mechanisms
+
+Beyond standard FHE privacy, fhield introduces architectural innovations that are impossible in plaintext DeFi:
+
+### fhield Buffer Model (Liquidation)
+
+Traditional liquidation requires liquidators to identify individual underwater users — impossible under FHE. The **fhield Buffer Model** solves this via a 3-stage decoupled flow:
+
+1. **Blind Batched Sweeping** — Keepers sweep users in bulk without knowing who is underwater
+2. **Instant Encrypted Seizure** — Bad debt absorbed into fhield Buffer Pool using `FHE.select()` with zero decryption latency
+3. **Bulk Dutch Auction** — Aggregated positions sold to liquidators, revealing only the total
+
+This eliminates the Discovery Problem, prevents balance privacy leakage, and achieves near-zero MEV.
+
+→ See [Liquidation: fhield Buffer Model](/docs/devdocs/User%20Flows/Liquidation) for the full architecture.
+
+### Extensible Module Hooks
+
+The protocol includes forward-looking hook points for future FHE-native modules:
+
+| Hook | Interface | Purpose |
+|------|-----------|--------|
+| Dynamic Credit Score | `ICreditScore` | Per-user LTV boosts based on encrypted on-chain history |
+| fhield Relief | `IFhieldBuffer` | Liquidation penalty subsidies, feeds into fhield Buffer Pool |
+
+Both are currently stubbed (return 0%) and activated via governance upgrade.

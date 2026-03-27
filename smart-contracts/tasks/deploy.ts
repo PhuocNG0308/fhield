@@ -34,7 +34,7 @@ task("task:deploy", "Deploy the full lending protocol").setAction(
       strategy: await result.strategy.getAddress(),
       assetConfig: await result.assetConfig.getAddress(),
       creditScore: await result.creditScore.getAddress(),
-      phoenixProgram: await result.phoenixProgram.getAddress(),
+      fhieldBuffer: await result.fhieldBuffer.getAddress(),
       lendingPool: await result.lendingPool.getAddress(),
     };
 
@@ -47,7 +47,7 @@ task("task:deploy", "Deploy the full lending protocol").setAction(
     console.log("InterestRateStrategy:", addresses.strategy);
     console.log("AssetConfig:", addresses.assetConfig);
     console.log("CreditScoreStub:", addresses.creditScore);
-    console.log("PhoenixProgramStub:", addresses.phoenixProgram);
+    console.log("FhieldBufferStub:", addresses.fhieldBuffer);
     console.log("TrustLendPool:", addresses.lendingPool);
 
     const smartContractsEnv = path.resolve(__dirname, "../.env");

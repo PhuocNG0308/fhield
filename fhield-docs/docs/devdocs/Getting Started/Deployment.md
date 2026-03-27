@@ -15,7 +15,7 @@ fhield uses Hardhat Ignition for deployment. The deployment sequence matters bec
 2. **DefaultInterestRateStrategy** — No dependencies
 3. **AssetConfig** — No dependencies
 4. **CreditScoreStub** — No dependencies
-5. **PhoenixProgramStub** — No dependencies
+5. **FhieldBufferStub** — No dependencies
 6. **TrustLendPool** — Depends on all above
 7. **FHERC20Wrapper** (per asset) — Depends on each ERC20 token
 

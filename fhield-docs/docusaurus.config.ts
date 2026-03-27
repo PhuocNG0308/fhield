@@ -4,13 +4,15 @@ import type * as Preset from '@docusaurus/preset-classic';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
+const isDeployment = process.env.DEPLOYMENT === 'true';
+
 const config: Config = {
   title: 'fhield',
   tagline: 'Privacy-First FHE DeFi Lending Protocol',
   favicon: 'img/fhield-icon.png',
 
   url: 'https://phuocng0308.github.io',
-  baseUrl: '/fhield/',
+  baseUrl: isDeployment ? '/fhield/' : '/',
 
   organizationName: 'PhuocNG0308',
   projectName: 'fhield',

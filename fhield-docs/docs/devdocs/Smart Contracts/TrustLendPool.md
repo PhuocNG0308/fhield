@@ -161,7 +161,7 @@ Executes liquidation if health check failed. Step 2 of 2.
 2. Liquidator transfers `debtToCover` tokens
 3. Repays portion of borrower's encrypted debt
 4. Calculates collateral seizure: `(debtToCover × debtPrice × (1 + bonus)) / collateralPrice`
-5. Triggers Phoenix Program relief hook (currently 0%)
+5. Triggers fhield Program relief hook (currently 0%)
 6. Seizes collateral from borrower, transfers to liquidator
 
 **Events**: `LiquidationExecuted(uint256 requestId, address borrower, uint256 debtRepaid)`
@@ -186,6 +186,6 @@ Iterates all assets, normalizes each balance, multiplies by `(price × ltvBps ×
 
 Same pattern but for debt — normalizes each debt balance, multiplies by price.
 
-### `_triggerPhoenixRelief(address borrower, uint256 penaltyAmount)`
+### `_triggerFhieldRelief(address borrower, uint256 penaltyAmount)`
 
-Calls PhoenixProgram stub to check if user qualifies for liquidation relief.
+Calls FhieldBuffer stub to check if user qualifies for liquidation relief.
