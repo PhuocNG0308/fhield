@@ -5,14 +5,14 @@
   </div>
   <div class="flex flex-col gap-1">
     <% navItems.forEach(function(item) { %>
-      <a class="sidebar-link<%= activePage === item.key ? ' active' : '' %>" href="<%= item.href %>">
+      <a class="sidebar-link<%= activePage === item.key ? ' active' : '' %>" href="<%= item.href %>" <%= item.external ? 'target="_blank" rel="noopener noreferrer"' : '' %>>
         <span class="material-symbols-outlined"><%= item.icon %></span>
         <span class="font-label text-sm font-bold"><%= item.label %></span>
       </a>
     <% }) %>
   </div>
   <div class="mt-auto px-4 space-y-2">
-    <a class="sidebar-link text-xs" href="#">
+    <a class="sidebar-link text-xs" href="https://phuocng0308.github.io/fhield/" target="_blank" rel="noopener noreferrer">
       <span class="material-symbols-outlined text-sm">description</span> Docs
     </a>
     <a class="sidebar-link text-xs" href="#">

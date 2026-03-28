@@ -52,6 +52,27 @@ Fhenix CoFHE enables **computation on encrypted data** directly on-chain:
 
 ---
 
+## Deployed Contracts — Arbitrum Sepolia Testnet
+
+All contracts are deployed and verified on **Arbitrum Sepolia** (Chain ID: `421614`).
+
+| Contract | Address |
+|---|---|
+| **TrustLendPool** | [`0xe2192Fbd78a4b39c19820eb15cf8DB0c240A599F`](https://sepolia.arbiscan.io/address/0xe2192Fbd78a4b39c19820eb15cf8DB0c240A599F) |
+| **AssetConfig** | [`0x7A7335e36caF0f1F140Aa450ADad9df5228f70c0`](https://sepolia.arbiscan.io/address/0x7A7335e36caF0f1F140Aa450ADad9df5228f70c0) |
+| **PriceOracle** | [`0xF93bE26299D4E6627a1333e02954BA1d88A19C8D`](https://sepolia.arbiscan.io/address/0xF93bE26299D4E6627a1333e02954BA1d88A19C8D) |
+| **InterestRateStrategy** | [`0xABf5e393F630c4F9a55AceEB69D9833B0fC79839`](https://sepolia.arbiscan.io/address/0xABf5e393F630c4F9a55AceEB69D9833B0fC79839) |
+| **FHERC20 Wrapper (USDC)** | [`0xb9902840Bf04c56Ad2367DE63536b467F8cf46A3`](https://sepolia.arbiscan.io/address/0xb9902840Bf04c56Ad2367DE63536b467F8cf46A3) |
+| **FHERC20 Wrapper (WETH)** | [`0xd946372dF9b63481F65924B5E8ed94A13a117c06`](https://sepolia.arbiscan.io/address/0xd946372dF9b63481F65924B5E8ed94A13a117c06) |
+| **MockUSDC** | [`0x4674EBAC0805d47E835375397868F49be423648c`](https://sepolia.arbiscan.io/address/0x4674EBAC0805d47E835375397868F49be423648c) |
+| **MockWETH** | [`0xeeBD923904B37451d59E43706Fc631882B9DFcB3`](https://sepolia.arbiscan.io/address/0xeeBD923904B37451d59E43706Fc631882B9DFcB3) |
+| **CreditScoreStub** | [`0x8587571A6152E09d80C19583c6f8EFd3178FeC14`](https://sepolia.arbiscan.io/address/0x8587571A6152E09d80C19583c6f8EFd3178FeC14) |
+| **FhieldBufferStub** | [`0x956d19B69c8B8F768CfFcb40Cc97e3015eb30182`](https://sepolia.arbiscan.io/address/0x956d19B69c8B8F768CfFcb40Cc97e3015eb30182) |
+
+> **Note:** These are testnet contracts for demonstration purposes. FHE operations require the Fhenix CoFHE runtime; on Arbitrum Sepolia, only non-FHE functions (token transfers, oracle reads, config queries) are callable.
+
+---
+
 ## Roadmap
 
 ### Wave 1: Ideation & Smart Contract Core (Mar 21–28) ✅
@@ -69,9 +90,9 @@ Fhenix CoFHE enables **computation on encrypted data** directly on-chain:
 - [x] Compile full FHE/CoFHE documentation reference (`docs/`)
 - [x] Build fhield-docs site with complete architecture, user flows, and smart contract specs
 
-### Wave 2: React Frontend (Mar 30 – Apr 6)
+### Wave 2: Build Frontend (Mar 30 – Apr 6)
 
-- [ ] Migrate from EJS server-rendered to React SPA
+- [ ] Migrate from EJS server-rendered to React / Next.js SPA
 - [ ] Implement wallet connection flow with viewing key generation
 - [ ] Build Dashboard page (TVL, markets overview, APY display)
 - [ ] Build Deposit & Withdraw modals with encrypted amount handling
@@ -79,7 +100,15 @@ Fhenix CoFHE enables **computation on encrypted data** directly on-chain:
 - [ ] Build Portfolio page with sealed balance decryption
 - [ ] Integrate contract interactions via ethers.js + cofhejs
 
-### Wave 3: CreditScoreModule (Apr 8 – May 8)
+### Wave 3: Full Liquidation Infrastructure (Apr 8 – May 8)
+
+- [ ] Build off-chain Keeper node ecosystem to maintain the Buffer Model
+- [ ] Implement Automated Blind Sweep cron jobs
+- [ ] Implement Dutch Auction UI for liquidators to bid on seized collateral
+- [ ] Backend services to monitor and execute liquidation phases securely
+- [ ] *Note: Phoenix Program (Liquidation Relief) has been temporarily deferred due to the complexity of the core liquidation system.*
+
+### Wave 4: CreditScoreModule (May 11–20)
 
 - [ ] Design on-chain encrypted credit scoring model
 - [ ] Implement `CreditScoreModule` replacing the stub
@@ -87,15 +116,6 @@ Fhenix CoFHE enables **computation on encrypted data** directly on-chain:
 - [ ] Interest rate discount calculation using FHE comparisons
 - [ ] Integration tests with TrustLendPool credit score hooks
 - [ ] Frontend: credit score display with sealed decryption
-
-### Wave 4: PhoenixProgram — Liquidation Relief (May 11–20)
-
-- [ ] Design liquidation penalty subsidy mechanism
-- [ ] Implement `PhoenixProgramModule` replacing the stub
-- [ ] Relief share calculation based on encrypted repayment history
-- [ ] Subsidy pool funding and distribution logic
-- [ ] Integration tests with TrustLendPool liquidation relief hooks
-- [ ] Frontend: Phoenix relief status and opt-in UI
 
 ### Wave 5: Polish & Showcase (May 23 – Jun 1)
 

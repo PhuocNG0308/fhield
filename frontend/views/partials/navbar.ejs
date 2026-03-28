@@ -6,7 +6,7 @@
     </a>
     <nav class="hidden md:flex items-center gap-8">
       <% navItems.forEach(function(item) { %>
-        <a class="font-headline uppercase tracking-[0.05em] text-[0.8125rem] transition-colors duration-300 <%= activePage === item.key ? 'text-primary font-bold' : 'text-white/70 hover:text-primary' %>" href="<%= item.href %>"><%= item.label %></a>
+        <a class="font-headline uppercase tracking-[0.05em] text-[0.8125rem] transition-colors duration-300 <%= activePage === item.key ? 'text-primary font-bold' : 'text-white/70 hover:text-primary' %>" href="<%= item.href %>" <%= item.external ? 'target="_blank" rel="noopener noreferrer"' : '' %>><%= item.label %></a>
       <% }) %>
     </nav>
     <div class="flex items-center gap-3">
