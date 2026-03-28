@@ -31,8 +31,8 @@ describe("TrustLendPool", function () {
     const CreditScore = await hre.ethers.getContractFactory("CreditScoreStub");
     const creditScore = await CreditScore.deploy();
 
-    const FhieldBuffer = await hre.ethers.getContractFactory("FhieldBufferStub");
-    const fhieldBuffer = await FhieldBuffer.deploy();
+    const PhoenixProgram = await hre.ethers.getContractFactory("PhoenixProgramStub");
+    const phoenixProgram = await PhoenixProgram.deploy();
 
     const Pool = await hre.ethers.getContractFactory("TrustLendPool");
     const pool = await Pool.deploy(
@@ -40,7 +40,7 @@ describe("TrustLendPool", function () {
       await oracle.getAddress(),
       await strategy.getAddress(),
       await creditScore.getAddress(),
-      await fhieldBuffer.getAddress()
+      await phoenixProgram.getAddress()
     );
 
     const usdcAddr = await usdc.getAddress();
@@ -75,7 +75,7 @@ describe("TrustLendPool", function () {
       strategy,
       assetConfig,
       creditScore,
-      fhieldBuffer,
+      phoenixProgram,
       pool,
     };
   }
@@ -184,11 +184,11 @@ describe("TrustLendPool", function () {
     });
   });
 
-  describe("fhield Buffer Hooks", function () {
-    it("FhieldBufferStub returns 0 relief share", async function () {
-      const { fhieldBuffer, alice } = await deployFixture();
+  describe("Phoenix Relief Hooks", function () {
+    it("PhoenixProgramStub returns 0 relief share", async function () {
+      const { phoenixProgram, alice } = await deployFixture();
       expect(
-        await fhieldBuffer.getReliefShare(await alice.getAddress(), 1000)
+        await phoenixProgram.getReliefShare(await alice.getAddress(), 1000)
       ).to.equal(0);
     });
   });
@@ -221,8 +221,8 @@ describe("TrustLendPool", function () {
     });
 
     it("should allow owner to set new PhoenixProgram module", async function () {
-      const { pool, owner, fhieldBuffer } = await deployFixture();
-      const addr = await fhieldBuffer.getAddress();
+      const { pool, owner, phoenixProgram } = await deployFixture();
+      const addr = await phoenixProgram.getAddress();
       await pool.connect(owner).setPhoenixProgram(addr);
     });
   });

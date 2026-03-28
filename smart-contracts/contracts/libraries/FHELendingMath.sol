@@ -13,11 +13,11 @@ library FHELendingMath {
     }
 
     function encryptedMin(euint64 a, euint64 b) internal returns (euint64) {
-        return FHE.select(FHE.lte(a, b), a, b);
+        return FHE.min(a, b);
     }
 
     function encryptedMax(euint64 a, euint64 b) internal returns (euint64) {
-        return FHE.select(FHE.gte(a, b), a, b);
+        return FHE.max(a, b);
     }
 
     function isZero(euint64 value) internal returns (ebool) {

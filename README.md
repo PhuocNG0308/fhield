@@ -62,9 +62,12 @@ Fhenix CoFHE enables **computation on encrypted data** directly on-chain:
 - [x] Implement `DefaultInterestRateStrategy` (utilization-based kinked curve)
 - [x] Implement `FHERC20Wrapper` (ERC20 ↔ encrypted token bridging)
 - [x] Build FHE lending math library (`FHELendingMath`, `RayMath`)
-- [x] Create stub modules: `CreditScoreStub`, `FhieldBufferStub`
-- [x] Write comprehensive test suite (32 tests across 5 suites)
+- [x] Implement **fhield Buffer Model** — 3-stage privacy-preserving liquidation (blind sweep → instant FHE seizure → Dutch Auction)
+- [x] Implement Insurance Fund (bad debt coverage) and Keeper Bounty System (anti-Sybil)
+- [x] Create stub modules: `CreditScoreStub`, `PhoenixProgramStub`
+- [x] Write comprehensive test suite (46 tests across 5 suites)
 - [x] Compile full FHE/CoFHE documentation reference (`docs/`)
+- [x] Build fhield-docs site with complete architecture, user flows, and smart contract specs
 
 ### Wave 2: React Frontend (Mar 30 – Apr 6)
 
@@ -85,14 +88,14 @@ Fhenix CoFHE enables **computation on encrypted data** directly on-chain:
 - [ ] Integration tests with TrustLendPool credit score hooks
 - [ ] Frontend: credit score display with sealed decryption
 
-### Wave 4: FhieldBufferModule (May 11–20)
+### Wave 4: PhoenixProgram — Liquidation Relief (May 11–20)
 
-- [ ] Design liquidation relief / subsidy mechanism
-- [ ] Implement `FhieldBufferModule` replacing the stub
-- [ ] Threshold-based relief triggers using encrypted health factors
+- [ ] Design liquidation penalty subsidy mechanism
+- [ ] Implement `PhoenixProgramModule` replacing the stub
+- [ ] Relief share calculation based on encrypted repayment history
 - [ ] Subsidy pool funding and distribution logic
-- [ ] Integration tests with TrustLendPool liquidation flow
-- [ ] Frontend: fhield buffer status and opt-in UI
+- [ ] Integration tests with TrustLendPool liquidation relief hooks
+- [ ] Frontend: Phoenix relief status and opt-in UI
 
 ### Wave 5: Polish & Showcase (May 23 – Jun 1)
 

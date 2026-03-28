@@ -118,12 +118,8 @@ function sweepLiquidations(
     _accrueAllReserves();
 
     // Pre-compute price ratio with liquidation bonus (plaintext)
-    uint256 scaledRatio = (debtPrice * (pctPrec + bonus) * LIQUIDATION_PRECISION)
+    uint256 scaledRatio = (debtPrice * (pctPrec + bonus) * PRICE_PRECISION)
         / (colPrice * pctPrec);
-
-    for (uint256 i = 0; i < users.length; i++) {
-        _sweepUser(users[i], collateralAsset, debtAsset, pKey, scaledRatio);
-    }
 
     // Anti-Sybil: skip non-borrowers and users still in cooldown
     uint256 swept;
@@ -173,7 +169,7 @@ function _sweepUser(
     // Collateral seizure includes liquidation bonus via scaledRatio
     euint64 colToSeize = FHELendingMath.divByPlaintext(
         FHELendingMath.mulByPlaintext(debtToBuffer, scaledRatio),
-        LIQUIDATION_PRECISION
+        PRICE_PRECISION
     );
     colToSeize = FHELendingMath.encryptedMin(colToSeize, userCol);
 
@@ -385,18 +381,20 @@ All BPS parameters use `PERCENTAGE_PRECISION = 10000`. Interest rate indices use
 ```mermaid
 block-beta
   columns 20
-  safe["✦ Max LTV — 75%"]:15
-  buf["⚠"]:1
+  safe["✦ Max LTV — 75%"]:14
+  buf["⚠"]:2
   liq["☠ Liquidation"]:4
+  l1["0% → 75%\nMax LTV"]:14
+  l2["75% → 80%\nBuffer (5%)"]:2
+  l3["80% → 100%\nLiq. Threshold"]:4
 
   style safe fill:rgba(10,217,220,0.12),stroke:#0AD9DC,stroke-width:2px,color:#0AD9DC
   style buf fill:rgba(234,179,8,0.2),stroke:#eab308,stroke-width:2px,color:#eab308
   style liq fill:rgba(239,68,68,0.12),stroke:#ef4444,stroke-width:2px,color:#ef4444
+  style l1 fill:transparent,stroke:none,color:#0AD9DC
+  style l2 fill:transparent,stroke:none,color:#eab308
+  style l3 fill:transparent,stroke:none,color:#ef4444
 ```
-
-$$
-\underbrace{0\% \longrightarrow 75\%}_{\textsf{Max LTV}} \quad \underbrace{75\% \to 80\%}_{\textsf{Buffer (5\%)}} \quad \underbrace{80\% \to 100\%}_{\color{red}\textsf{Liquidation Threshold}}
-$$
 
 - **LTV** (e.g., 75%): Maximum borrowing power as a percentage of collateral value
 - **Liquidation Threshold** (e.g., 80%): Position is flagged as underwater when collateral value / debt value falls below this

@@ -83,7 +83,6 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
     uint256 public constant AUCTION_START_PREMIUM = 10500;
     uint256 public constant AUCTION_FLOOR = 8000;
     uint256 private constant PRICE_PRECISION = 1e18;
-    uint256 private constant LIQUIDATION_PRECISION = 1e6;
 
     struct Auction {
         address collateralAsset;
@@ -210,7 +209,7 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         (uint64 amount, bool ready) = FHE.getDecryptResultSafe(pending);
         require(ready, "Decrypt not ready");
 
-        _pendingBorrows[msg.sender][asset] = FHE.asEuint64(0);
+        _pendingBorrows[msg.sender][asset] = euint64.wrap(0);
 
         if (amount > 0) {
             totalBorrows[asset] += amount;
@@ -296,7 +295,7 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         (uint64 amount, bool ready) = FHE.getDecryptResultSafe(pending);
         require(ready, "Decrypt not ready");
 
-        _pendingWithdrawals[msg.sender][asset] = FHE.asEuint64(0);
+        _pendingWithdrawals[msg.sender][asset] = euint64.wrap(0);
 
         if (amount > 0) {
             totalDeposits[asset] = totalDeposits[asset] > amount
@@ -573,10 +572,8 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         FHE.allowThis(pa.encCollateral);
         FHE.allowThis(pa.encDebt);
 
-        buf.encCollateral = FHE.asEuint64(0);
-        buf.encDebt = FHE.asEuint64(0);
-        FHE.allowThis(buf.encCollateral);
-        FHE.allowThis(buf.encDebt);
+        buf.encCollateral = euint64.wrap(0);
+        buf.encDebt = euint64.wrap(0);
 
         FHE.decrypt(pa.encCollateral);
         FHE.decrypt(pa.encDebt);
@@ -601,10 +598,8 @@ contract TrustLendPool is Ownable, ReentrancyGuard {
         (uint64 debtAmt, bool debtReady) = FHE.getDecryptResultSafe(pa.encDebt);
         require(colReady && debtReady, "Decrypt not ready");
 
-        pa.encCollateral = FHE.asEuint64(0);
-        pa.encDebt = FHE.asEuint64(0);
-        FHE.allowThis(pa.encCollateral);
-        FHE.allowThis(pa.encDebt);
+        pa.encCollateral = euint64.wrap(0);
+        pa.encDebt = euint64.wrap(0);
         pa.pending = false;
 
         if (colAmt == 0 || debtAmt == 0) return;
